@@ -38,6 +38,14 @@ export function parseCommand(input: string): Command {
       return { kind: "cal" };
     case "help":
       return { kind: "help" };
+    case "follow":
+    case "unfollow": {
+      const name = args.join(" ").trim();
+      if (!name) return err(input, `Usage: ${verb} <name>`);
+      return { kind: verb, name };
+    }
+    case "following":
+      return { kind: "following" };
     default:
       return err(input, `Unknown command: "${verb}". Type "help" for the command list.`);
   }

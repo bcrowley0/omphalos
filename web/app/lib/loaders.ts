@@ -1,6 +1,7 @@
 import { api } from "./api/client";
 import type { Schemas } from "./api/client";
 import { routeSymbol } from "./command/router";
+import type { Person } from "./command/types";
 
 // Thin wrappers over the typed client. Each returns the canonical response
 // envelope (or throws on a transport/HTTP failure, which useResource maps to
@@ -47,6 +48,13 @@ export async function loadYield(): Promise<Schemas["YieldCurveResponse"]> {
 
 export async function loadNews(feed?: string): Promise<Schemas["NewsResponse"]> {
   const { data, error } = await api.GET("/news", { params: { query: feed ? { feed } : {} } });
+  return unwrap(data, error);
+}
+
+export async function loadPeopleFeed(people: Person[]): Promise<Schemas["PeopleFeedResponse"]> {
+  const { data, error } = await api.POST("/people/feed", {
+    body: { people: people.map((p) => ({ name: p.name, feeds: p.feeds })), limitPerPerson: 25 },
+  });
   return unwrap(data, error);
 }
 

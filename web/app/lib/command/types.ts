@@ -11,6 +11,9 @@ export type Command =
   | { kind: "news"; feed?: string }
   | { kind: "cal" }
   | { kind: "help" }
+  | { kind: "follow"; name: string }
+  | { kind: "unfollow"; name: string }
+  | { kind: "following" }
   | { kind: "error"; input: string; message: string };
 
 // Which backend source serves a given symbol (CLAUDE.md symbol router).
@@ -26,7 +29,9 @@ export type WidgetKind =
   | "crypto"
   | "news"
   | "cal"
-  | "help";
+  | "help"
+  | "following"
+  | "person";
 
 // An open widget tab. `id` is a stable dedup key: opening a command whose id
 // already exists focuses that tab instead of creating a duplicate.
@@ -37,4 +42,8 @@ export type Tab = {
   symbol?: string;
   pair?: string;
   feed?: string;
+  person?: string;
 };
+
+// A followed person. `lastSeenTs` drives the "new since you last looked" badge.
+export type Person = { name: string; feeds: string[]; lastSeenTs: number };

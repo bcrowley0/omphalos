@@ -121,8 +121,15 @@ opens or focuses a widget tab:
 | `port` | portfolio: positions + balances |
 | `yield` | Treasury yield curve |
 | `news [feed]` | headlines (optional feed), linking out |
+| `follow <name>` / `unfollow <name>` | follow/unfollow a person (e.g. `follow Andrej Karpathy`) |
+| `following` | roster + aggregated feed of followed people's public items |
 | `cal` | economic calendar (stubbed "not implemented") |
 | `help` | command list |
+
+**Follow People:** aggregates public items about/by the people you follow — news,
+articles, interviews, podcasts/talks — from a free Google News search per person
+plus any first-party feeds (blog/YouTube) you attach. On-demand + cached; a "●"
+marks items newer than your last visit. The follow-list persists in `localStorage`.
 
 Open tabs and the watchlist persist in `localStorage` across refreshes. Unknown
 commands show an inline error.

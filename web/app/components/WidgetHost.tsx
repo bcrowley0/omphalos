@@ -10,6 +10,8 @@ import NewsWidget from "../widgets/NewsWidget";
 import WatchlistWidget from "../widgets/WatchlistWidget";
 import CalendarWidget from "../widgets/CalendarWidget";
 import HelpWidget from "../widgets/HelpWidget";
+import FollowingWidget from "../widgets/FollowingWidget";
+import PersonFeedWidget from "../widgets/PersonFeedWidget";
 
 // Render the widget for a tab. The `key` on the caller side ensures each tab
 // gets its own component instance (and its own data fetch).
@@ -33,5 +35,9 @@ export default function WidgetHost({ tab }: { tab: Tab }) {
       return <CalendarWidget />;
     case "help":
       return <HelpWidget />;
+    case "following":
+      return <FollowingWidget />;
+    case "person":
+      return <PersonFeedWidget person={tab.person!} />;
   }
 }

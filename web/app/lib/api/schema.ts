@@ -141,6 +141,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/people/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** People Feed */
+        post: operations["people_feed_people_feed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/calendar": {
         parameters: {
             query?: never;
@@ -235,6 +252,13 @@ export interface components {
              */
             candles: components["schemas"]["Candle"][];
         };
+        /** FeedError */
+        FeedError: {
+            /** Person */
+            person: string;
+            /** Message */
+            message: string;
+        };
         /** FeedInfo */
         FeedInfo: {
             /** Name */
@@ -250,6 +274,23 @@ export interface components {
              * @default []
              */
             feeds: components["schemas"]["FeedInfo"][];
+        };
+        /** FollowItem */
+        FollowItem: {
+            /** Person */
+            person: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Url */
+            url: string;
+            /** Publishedts */
+            publishedTs?: number | null;
+            /** Source */
+            source: string;
+            /** Kind */
+            kind: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -296,6 +337,45 @@ export interface components {
              * @default []
              */
             items: components["schemas"]["NewsItem"][];
+        };
+        /** PeopleFeedRequest */
+        PeopleFeedRequest: {
+            /**
+             * People
+             * @default []
+             */
+            people: components["schemas"]["PersonRef"][];
+            /**
+             * Limitperperson
+             * @default 25
+             */
+            limitPerPerson: number;
+        };
+        /** PeopleFeedResponse */
+        PeopleFeedResponse: {
+            status: components["schemas"]["SourceStatus"];
+            /** Message */
+            message?: string | null;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["FollowItem"][];
+            /**
+             * Errors
+             * @default []
+             */
+            errors: components["schemas"]["FeedError"][];
+        };
+        /** PersonRef */
+        PersonRef: {
+            /** Name */
+            name: string;
+            /**
+             * Feeds
+             * @default []
+             */
+            feeds: string[];
         };
         /** PortfolioResponse */
         PortfolioResponse: {
@@ -635,6 +715,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    people_feed_people_feed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeopleFeedRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeopleFeedResponse"];
                 };
             };
             /** @description Validation Error */

@@ -162,3 +162,38 @@ class FeedListResponse(CamelModel):
 class AddFeedRequest(CamelModel):
     name: str
     url: str
+
+
+# --------------------------------------------------------------------------- #
+# People feed — follow individuals across news, YouTube, blogs, podcasts
+# --------------------------------------------------------------------------- #
+class FollowItem(CamelModel):
+    person: str
+    title: str
+    summary: str
+    url: str
+    published_ts: int | None = None  # UTC epoch ms
+    source: str  # human label, e.g. "Google News", "YouTube", domain
+    kind: str  # "news" | "video" | "blog" | "podcast"
+
+
+class PersonRef(CamelModel):
+    name: str
+    feeds: list[str] = []  # optional custom feed URLs (blog / YouTube / podcast)
+
+
+class PeopleFeedRequest(CamelModel):
+    people: list[PersonRef] = []
+    limit_per_person: int = 25
+
+
+class FeedError(CamelModel):
+    person: str
+    message: str
+
+
+class PeopleFeedResponse(CamelModel):
+    status: SourceStatus
+    message: str | None = None
+    items: list[FollowItem] = []
+    errors: list[FeedError] = []
