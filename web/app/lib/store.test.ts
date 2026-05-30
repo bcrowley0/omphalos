@@ -76,4 +76,39 @@ describe("TerminalStore", () => {
     expect(afterRefresh.getSnapshot().error).toBeNull();
     expect(afterRefresh.getSnapshot().history).toEqual([]);
   });
+
+  it("seeds a default roster on first run", () => {
+    const s = new TerminalStore();
+    const names = s.getSnapshot().following.map((p) => p.name);
+    expect(names).toEqual(["Paul Tudor Jones", "Stanley Druckenmiller", "Andrej Karpathy", "Boris Cherny"]);
+  });
+
+  it("follow adds a person (no dup) and opens their tab; unfollow removes", () => {
+    const s = new TerminalStore();
+    s.dispatch("follow Jensen Huang");
+    expect(s.getSnapshot().following.some((p) => p.name === "Jensen Huang")).toBe(true);
+    expect(s.getSnapshot().activeId).toBe("person:Jensen Huang");
+    s.dispatch("follow Jensen Huang");
+    expect(s.getSnapshot().following.filter((p) => p.name === "Jensen Huang")).toHaveLength(1);
+    s.dispatch("unfollow Jensen Huang");
+    expect(s.getSnapshot().following.some((p) => p.name === "Jensen Huang")).toBe(false);
+  });
+
+  it("markSeen updates lastSeenTs and persists the following list across a refresh", () => {
+    const first = new TerminalStore();
+    first.dispatch("follow Jensen Huang");
+    first.markSeen("Jensen Huang");
+    const seen = first.getSnapshot().following.find((p) => p.name === "Jensen Huang")!.lastSeenTs;
+    expect(seen).toBeGreaterThan(0);
+    const afterRefresh = new TerminalStore();
+    expect(afterRefresh.getSnapshot().following.some((p) => p.name === "Jensen Huang")).toBe(true);
+  });
+
+  it("addPersonFeed attaches a feed URL to a person", () => {
+    const s = new TerminalStore();
+    s.dispatch("follow Jensen Huang");
+    s.addPersonFeed("Jensen Huang", "https://example.com/rss.xml");
+    const p = s.getSnapshot().following.find((x) => x.name === "Jensen Huang")!;
+    expect(p.feeds).toContain("https://example.com/rss.xml");
+  });
 });

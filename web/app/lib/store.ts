@@ -1,6 +1,6 @@
 import { parseCommand } from "./command/parser";
 import { commandToTab } from "./command/tabs";
-import type { Tab } from "./command/types";
+import type { Person, Tab } from "./command/types";
 
 // Terminal UI state, persisted to localStorage (NON-secret UI state only:
 // watchlist + open tabs + active tab — CLAUDE.md). Implemented as an external
@@ -11,11 +11,19 @@ export type TerminalState = {
   tabs: Tab[];
   activeId: string | null;
   watchlist: string[];
+  following: Person[];
   history: string[]; // recent raw command inputs (in-memory; not persisted)
   error: string | null; // last inline parse error (transient)
 };
 
 const STORAGE_KEY = "omphalos.terminal.v1";
+
+const DEFAULT_FOLLOWING: Person[] = [
+  { name: "Paul Tudor Jones", feeds: [], lastSeenTs: 0 },
+  { name: "Stanley Druckenmiller", feeds: [], lastSeenTs: 0 },
+  { name: "Andrej Karpathy", feeds: [], lastSeenTs: 0 },
+  { name: "Boris Cherny", feeds: [], lastSeenTs: 0 },
+];
 
 // Stable references for SSR / empty state (useSyncExternalStore requires
 // getServerSnapshot to be referentially stable).
@@ -23,25 +31,28 @@ const SERVER_STATE: TerminalState = {
   tabs: [],
   activeId: null,
   watchlist: [],
+  following: [],
   history: [],
   error: null,
 };
 
-type Persisted = Pick<TerminalState, "tabs" | "activeId" | "watchlist">;
+type Persisted = Pick<TerminalState, "tabs" | "activeId" | "watchlist" | "following">;
 
 function loadPersisted(): Persisted {
-  if (typeof window === "undefined") return { tabs: [], activeId: null, watchlist: [] };
+  if (typeof window === "undefined")
+    return { tabs: [], activeId: null, watchlist: [], following: DEFAULT_FOLLOWING };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { tabs: [], activeId: null, watchlist: [] };
+    if (!raw) return { tabs: [], activeId: null, watchlist: [], following: DEFAULT_FOLLOWING };
     const parsed = JSON.parse(raw) as Partial<Persisted>;
     return {
       tabs: Array.isArray(parsed.tabs) ? parsed.tabs : [],
       activeId: typeof parsed.activeId === "string" ? parsed.activeId : null,
       watchlist: Array.isArray(parsed.watchlist) ? parsed.watchlist : [],
+      following: Array.isArray(parsed.following) ? parsed.following : DEFAULT_FOLLOWING,
     };
   } catch {
-    return { tabs: [], activeId: null, watchlist: [] };
+    return { tabs: [], activeId: null, watchlist: [], following: DEFAULT_FOLLOWING };
   }
 }
 
@@ -73,8 +84,8 @@ export class TerminalStore {
   private persist() {
     if (typeof window === "undefined") return;
     try {
-      const { tabs, activeId, watchlist } = this.state;
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs, activeId, watchlist }));
+      const { tabs, activeId, watchlist, following } = this.state;
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs, activeId, watchlist, following }));
     } catch {
       /* storage unavailable / quota — non-fatal for a local-first prototype */
     }
@@ -98,6 +109,15 @@ export class TerminalStore {
       watchlist = watchlist.filter((s) => s !== cmd.symbol);
     }
 
+    let following = this.state.following;
+    if (cmd.kind === "follow") {
+      following = following.some((p) => p.name === cmd.name)
+        ? following
+        : [...following, { name: cmd.name, feeds: [], lastSeenTs: 0 }];
+    } else if (cmd.kind === "unfollow") {
+      following = following.filter((p) => p.name !== cmd.name);
+    }
+
     const tab = commandToTab(cmd);
     let tabs = this.state.tabs;
     let activeId = this.state.activeId;
@@ -107,7 +127,7 @@ export class TerminalStore {
       activeId = tab.id;
     }
 
-    this.set({ tabs, activeId, watchlist, history, error: null });
+    this.set({ tabs, activeId, watchlist, following, history, error: null });
   }
 
   focus(id: string) {
@@ -130,6 +150,30 @@ export class TerminalStore {
   clearError() {
     if (this.state.error === null) return;
     this.set({ ...this.state, error: null });
+  }
+
+  followPerson(name: string) {
+    this.dispatch(`follow ${name}`);
+  }
+
+  unfollowPerson(name: string) {
+    this.dispatch(`unfollow ${name}`);
+  }
+
+  addPersonFeed(name: string, url: string) {
+    const following = this.state.following.map((p) =>
+      p.name === name && !p.feeds.includes(url) ? { ...p, feeds: [...p.feeds, url] } : p,
+    );
+    this.set({ ...this.state, following });
+  }
+
+  // Mark a person (or "*" for all) as seen now; drives the "new" badge.
+  markSeen(name: string) {
+    const now = Date.now();
+    const following = this.state.following.map((p) =>
+      name === "*" || p.name === name ? { ...p, lastSeenTs: now } : p,
+    );
+    this.set({ ...this.state, following });
   }
 }
 
