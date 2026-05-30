@@ -1,6 +1,12 @@
 """Unit tests for FRED normalization (pure functions, no network)."""
 
-from app.adapters.fred import fred_date_to_ms, latest_valid_observation
+from app.adapters.fred import (
+    fred_date_to_ms,
+    latest_valid_observation,
+    parse_observations,
+    latest_on_or_before,
+    relative_target,
+)
 from app.models import AsOfCurve, YieldPoint, YieldCurveResponse, SourceStatus
 
 
@@ -45,3 +51,53 @@ def test_yieldcurveresponse_holds_curves():
     r = YieldCurveResponse(status=SourceStatus.OK, curves=[])
     assert r.model_dump(by_alias=True)["curves"] == []
     assert not hasattr(r, "points")
+
+
+def test_parse_observations_sorts_ascending_and_drops_dots():
+    payload = {
+        "observations": [
+            {"date": "2024-06-07", "value": "4.43"},
+            {"date": "2024-06-10", "value": "."},      # dropped
+            {"date": "2024-06-06", "value": "4.40"},
+        ]
+    }
+    series = parse_observations(payload)
+    assert series == [
+        (fred_date_to_ms("2024-06-06"), 4.40),
+        (fred_date_to_ms("2024-06-07"), 4.43),
+    ]
+
+
+def test_latest_on_or_before_picks_latest_not_after_target():
+    series = [
+        (fred_date_to_ms("2024-06-03"), 4.30),
+        (fred_date_to_ms("2024-06-05"), 4.35),
+        (fred_date_to_ms("2024-06-07"), 4.43),
+    ]
+    # Target is a weekend (06-08) -> latest on/before is Friday 06-07
+    assert latest_on_or_before(series, fred_date_to_ms("2024-06-08")) == (
+        fred_date_to_ms("2024-06-07"),
+        4.43,
+    )
+    # Exact hit
+    assert latest_on_or_before(series, fred_date_to_ms("2024-06-05")) == (
+        fred_date_to_ms("2024-06-05"),
+        4.35,
+    )
+    # Before the series start -> None
+    assert latest_on_or_before(series, fred_date_to_ms("2024-06-01")) is None
+
+
+def test_relative_target_day_week_month_year():
+    cur = fred_date_to_ms("2024-06-07")
+    assert relative_target(cur, "1d") == fred_date_to_ms("2024-06-06")
+    assert relative_target(cur, "1w") == fred_date_to_ms("2024-05-31")
+    assert relative_target(cur, "1m") == fred_date_to_ms("2024-05-07")
+    assert relative_target(cur, "3m") == fred_date_to_ms("2024-03-07")
+    assert relative_target(cur, "1y") == fred_date_to_ms("2023-06-07")
+
+
+def test_relative_target_clamps_short_month():
+    # 2024-03-31 minus 1 month -> Feb has no 31st -> clamp to 2024-02-29
+    cur = fred_date_to_ms("2024-03-31")
+    assert relative_target(cur, "1m") == fred_date_to_ms("2024-02-29")
