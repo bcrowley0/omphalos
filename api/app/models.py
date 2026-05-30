@@ -175,6 +175,8 @@ class FollowItem(CamelModel):
     published_ts: int | None = None  # UTC epoch ms
     source: str  # human label, e.g. "Google News", "YouTube", domain
     kind: str  # "news" | "video" | "blog" | "podcast"
+    publisher: str | None = None  # the outlet (e.g. "Reuters"); None if unknown
+    primary: bool = False  # first-party OR wire-grade/official source (vs rehash)
 
 
 class PersonRef(CamelModel):

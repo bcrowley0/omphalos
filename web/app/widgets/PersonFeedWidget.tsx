@@ -14,6 +14,7 @@ export default function PersonFeedWidget({ person }: { person: string }) {
   const key = `${entry.name}:${entry.feeds.join("|")}`;
   const seenAtMount = useMemo(() => entry.lastSeenTs, [/* mount only */]); // eslint-disable-line react-hooks/exhaustive-deps
   const [feedUrl, setFeedUrl] = useState("");
+  const [primaryOnly, setPrimaryOnly] = useState(true);
 
   const load = useCallback(async () => {
     const r = await loadPeopleFeed([entry]);
@@ -42,27 +43,51 @@ export default function PersonFeedWidget({ person }: { person: string }) {
         <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginBottom: "0.8rem" }}>feeds: {entry.feeds.join(", ")}</p>
       )}
       <ResourceView state={state}>
-        {(data) =>
-          data.items.length === 0 ? (
-            <p style={{ color: "var(--muted)" }}>No recent items for {person}.</p>
-          ) : (
-            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-              {data.items.map((item, i) => {
-                const isNew = (item.publishedTs ?? 0) > seenAtMount;
-                return (
-                  <li key={`${item.url}-${i}`} style={{ borderTop: i ? "1px solid var(--border)" : "none", paddingTop: i ? "0.9rem" : 0 }}>
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1rem" }}>
-                      {isNew && <span style={{ color: "var(--accent)", marginRight: "0.4rem" }}>●</span>}
-                      {item.title}
-                    </a>
-                    {item.summary && <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>{item.summary}</p>}
-                    <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>{item.kind} · {item.source} · {timeAgo(item.publishedTs)}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )
-        }
+        {(data) => {
+          const items = primaryOnly ? data.items.filter((i) => i.primary) : data.items;
+          const hiddenSecondary = data.items.length - data.items.filter((i) => i.primary).length;
+          return (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.8rem", fontSize: "0.78rem", color: "var(--muted)" }}>
+                <button onClick={() => setPrimaryOnly((v) => !v)} title="Primary = first-party + wire-grade/official sources"
+                  style={{ background: primaryOnly ? "var(--panel)" : "transparent", color: primaryOnly ? "var(--accent)" : "var(--muted)", border: "1px solid var(--border)", borderRadius: 999, padding: "0.2rem 0.7rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem" }}>
+                  {primaryOnly ? "✓ primary sources only" : "primary sources only"}
+                </button>
+                {primaryOnly && hiddenSecondary > 0 && (
+                  <button onClick={() => setPrimaryOnly(false)}
+                    style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem", textDecoration: "underline" }}>
+                    show all ({hiddenSecondary} more)
+                  </button>
+                )}
+              </div>
+              {items.length === 0 ? (
+                <p style={{ color: "var(--muted)" }}>
+                  {primaryOnly && data.items.length > 0
+                    ? `No primary sources for ${person} right now — try “show all”.`
+                    : `No recent items for ${person}.`}
+                </p>
+              ) : (
+                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+                  {items.map((item, i) => {
+                    const isNew = (item.publishedTs ?? 0) > seenAtMount;
+                    return (
+                      <li key={`${item.url}-${i}`} style={{ borderTop: i ? "1px solid var(--border)" : "none", paddingTop: i ? "0.9rem" : 0 }}>
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1rem" }}>
+                          {isNew && <span style={{ color: "var(--accent)", marginRight: "0.4rem" }}>●</span>}
+                          {item.title}
+                        </a>
+                        {item.summary && <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>{item.summary}</p>}
+                        <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
+                          {item.publisher ?? item.source}{item.primary ? "" : " · secondary"} · {timeAgo(item.publishedTs)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          );
+        }}
       </ResourceView>
     </WidgetFrame>
   );

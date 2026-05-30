@@ -20,6 +20,7 @@ export default function FollowingWidget() {
   );
   const [filter, setFilter] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [primaryOnly, setPrimaryOnly] = useState(true);
 
   const load = useCallback(async () => {
     const r = await loadPeopleFeed(following);
@@ -59,16 +60,34 @@ export default function FollowingWidget() {
       ) : (
       <ResourceView state={state}>
         {(data) => {
-          const items: FollowItem[] = filter ? data.items.filter((i) => i.person === filter) : data.items;
+          const scoped: FollowItem[] = filter ? data.items.filter((i) => i.person === filter) : data.items;
+          const items = primaryOnly ? scoped.filter((i) => i.primary) : scoped;
+          const hiddenSecondary = scoped.length - scoped.filter((i) => i.primary).length;
           return (
             <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.8rem", fontSize: "0.78rem", color: "var(--muted)" }}>
+                <button onClick={() => setPrimaryOnly((v) => !v)} title="Primary = first-party + wire-grade/official sources"
+                  style={{ background: primaryOnly ? "var(--panel)" : "transparent", color: primaryOnly ? "var(--accent)" : "var(--muted)", border: "1px solid var(--border)", borderRadius: 999, padding: "0.2rem 0.7rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem" }}>
+                  {primaryOnly ? "✓ primary sources only" : "primary sources only"}
+                </button>
+                {primaryOnly && hiddenSecondary > 0 && (
+                  <button onClick={() => setPrimaryOnly(false)}
+                    style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem", textDecoration: "underline" }}>
+                    show all ({hiddenSecondary} more)
+                  </button>
+                )}
+              </div>
               {data.errors.length > 0 && (
                 <p style={{ color: "#d9a441", fontSize: "0.78rem", marginBottom: "0.6rem" }}>
                   couldn&apos;t reach: {data.errors.map((e) => e.person).join(", ")}
                 </p>
               )}
               {items.length === 0 ? (
-                <p style={{ color: "var(--muted)" }}>No recent items.</p>
+                <p style={{ color: "var(--muted)" }}>
+                  {primaryOnly && scoped.length > 0
+                    ? "No primary sources right now — try “show all”."
+                    : "No recent items."}
+                </p>
               ) : (
                 <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
                   {items.map((item, i) => {
@@ -81,7 +100,8 @@ export default function FollowingWidget() {
                         </a>
                         {item.summary && <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>{item.summary}</p>}
                         <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
-                          {item.person} · {item.kind} · {item.source} · {timeAgo(item.publishedTs)}
+                          {item.person} · {item.publisher ?? item.source}
+                          {item.primary ? "" : " · secondary"} · {timeAgo(item.publishedTs)}
                         </span>
                       </li>
                     );

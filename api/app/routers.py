@@ -250,7 +250,11 @@ async def people_feed(req: PeopleFeedRequest) -> PeopleFeedResponse:
     for p in req.people:
         try:
             person_items = await adapter.get_person_feed(p.name, p.feeds)
-            items.extend(person_items[: req.limit_per_person])
+            # Keep ALL primary items (first-party + wire-grade/official) so the
+            # primary-only view is never starved; cap only secondary rehash.
+            primary = [i for i in person_items if i.primary]
+            secondary = [i for i in person_items if not i.primary]
+            items.extend(primary + secondary[: req.limit_per_person])
         except Exception as exc:  # noqa: BLE001 - one person failing must not kill the rest
             _, msg = _status_from_exc(exc)
             errors.append(FeedError(person=p.name, message=msg))

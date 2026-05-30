@@ -294,6 +294,13 @@ export interface components {
             source: string;
             /** Kind */
             kind: string;
+            /** Publisher */
+            publisher?: string | null;
+            /**
+             * Primary
+             * @default false
+             */
+            primary: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

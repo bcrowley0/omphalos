@@ -131,6 +131,13 @@ articles, interviews, podcasts/talks — from a free Google News search per pers
 plus any first-party feeds (blog/YouTube) you attach. On-demand + cached; a "●"
 marks items newer than your last visit. The follow-list persists in `localStorage`.
 
+Defaults to **primary sources only** (a toggle reveals all coverage). "Primary"
+means first-party content (the person's own attached feeds) plus wire-grade/official
+publishers (Reuters, Bloomberg, AP, FT, WSJ, and press-release wires); secondary
+rehash (aggregators/blogs) is hidden. Note: exact "who published first" can't be
+determined from RSS, so this is a source-quality filter, not a true scoop detector.
+Primary items are never truncated by the per-person cap.
+
 Open tabs and the watchlist persist in `localStorage` across refreshes. Unknown
 commands show an inline error.
 

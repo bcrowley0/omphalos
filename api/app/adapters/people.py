@@ -39,20 +39,69 @@ def derive_kind(url: str) -> str:
     return "blog"
 
 
+# Publishers treated as "primary": wire-grade original reporting + press-release
+# wires. Matched case-insensitively as substrings of the publisher name. First-
+# party content (the person's own attached feeds) is always primary regardless.
+_PRIMARY_PUBLISHERS = (
+    "reuters",
+    "bloomberg",
+    "associated press",
+    "financial times",
+    "wall street journal",
+    "wsj",
+    "pr newswire",
+    "prnewswire",
+    "business wire",
+    "businesswire",
+    "globenewswire",
+    "globe newswire",
+)
+
+
+def extract_publisher(title: str) -> tuple[str, str | None]:
+    """Google News titles end with ' - <Publisher>'. Return (clean_title,
+    publisher), splitting on the LAST ' - '. Pure/testable."""
+    head, sep, tail = title.rpartition(" - ")
+    if sep and head and tail:
+        return head.strip(), tail.strip()
+    return title, None
+
+
+def is_primary_publisher(publisher: str | None) -> bool:
+    """True if the publisher is a wire-grade/official/press-release source. Pure."""
+    if not publisher:
+        return False
+    p = publisher.lower()
+    return any(name in p for name in _PRIMARY_PUBLISHERS)
+
+
 def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> list[FollowItem]:
-    """Convert canonical NewsItems -> FollowItems, tagging person/kind/source."""
-    return [
-        FollowItem(
-            person=person,
-            title=n.title,
-            summary=n.summary,
-            url=n.url,
-            published_ts=n.published_ts,
-            source=source_label,
-            kind=derive_kind(n.url),
+    """Convert canonical NewsItems -> FollowItems, tagging person/kind/source and
+    classifying primary vs secondary. Google News items derive their publisher
+    from the title suffix (which is stripped from the display title); first-party
+    feeds (anything not Google News) are always primary."""
+    first_party = source_label != _GOOGLE_NEWS
+    items: list[FollowItem] = []
+    for n in news:
+        if first_party:
+            title, publisher, primary = n.title, source_label, True
+        else:
+            title, publisher = extract_publisher(n.title)
+            primary = is_primary_publisher(publisher)
+        items.append(
+            FollowItem(
+                person=person,
+                title=title,
+                summary=n.summary,
+                url=n.url,
+                published_ts=n.published_ts,
+                source=source_label,
+                kind=derive_kind(n.url),
+                publisher=publisher,
+                primary=primary,
+            )
         )
-        for n in news
-    ]
+    return items
 
 
 def merge_dedupe_sort(items: list[FollowItem]) -> list[FollowItem]:

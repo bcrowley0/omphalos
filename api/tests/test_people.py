@@ -3,11 +3,55 @@ import httpx
 from app.adapters.people import (
     PeopleAdapter,
     derive_kind,
+    extract_publisher,
     google_news_search_url,
+    is_primary_publisher,
     merge_dedupe_sort,
     to_follow_items,
 )
 from app.models import NewsItem
+
+
+def test_extract_publisher_splits_google_news_suffix():
+    assert extract_publisher("Nvidia hits record - Reuters") == ("Nvidia hits record", "Reuters")
+    assert extract_publisher("No suffix here") == ("No suffix here", None)
+    # only the LAST ' - ' is the separator
+    assert extract_publisher("A - B story - CNBC") == ("A - B story", "CNBC")
+
+
+def test_is_primary_publisher_allowlist():
+    assert is_primary_publisher("Reuters")
+    assert is_primary_publisher("Bloomberg.com")  # substring match
+    assert is_primary_publisher("The Wall Street Journal")
+    assert is_primary_publisher("Financial Times")
+    assert is_primary_publisher("PR Newswire")
+    assert not is_primary_publisher("Yahoo Finance")
+    assert not is_primary_publisher("The Motley Fool")
+    assert not is_primary_publisher(None)
+
+
+def test_to_follow_items_marks_google_news_by_publisher_and_cleans_title():
+    news = [
+        NewsItem(title="Jensen says X - Reuters", summary="s",
+                 url="https://news.google.com/rss/articles/1", published_ts=10, feed="Google News"),
+        NewsItem(title="Hot take - The Motley Fool", summary="s",
+                 url="https://news.google.com/rss/articles/2", published_ts=9, feed="Google News"),
+    ]
+    items = to_follow_items(news, person="Jensen Huang", source_label="Google News")
+    assert items[0].title == "Jensen says X"
+    assert items[0].publisher == "Reuters"
+    assert items[0].primary is True
+    assert items[1].publisher == "The Motley Fool"
+    assert items[1].primary is False
+
+
+def test_to_follow_items_first_party_always_primary():
+    news = [NewsItem(title="My talk", summary="", url="https://www.youtube.com/watch?v=1",
+                     published_ts=10, feed="YouTube")]
+    items = to_follow_items(news, person="Andrej Karpathy", source_label="YouTube")
+    assert items[0].primary is True
+    assert items[0].publisher == "YouTube"
+    assert items[0].kind == "video"
 
 
 def test_google_news_search_url_quotes_and_encodes_name():
