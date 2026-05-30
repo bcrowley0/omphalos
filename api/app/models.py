@@ -147,3 +147,18 @@ class CalendarResponse(CamelModel):
 
     status: SourceStatus
     message: str | None = None
+
+
+class FeedInfo(CamelModel):
+    name: str
+    url: str
+
+
+class FeedListResponse(CamelModel):
+    status: SourceStatus
+    feeds: list[FeedInfo] = []
+
+
+class AddFeedRequest(CamelModel):
+    name: str
+    url: str

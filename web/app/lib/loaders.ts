@@ -55,6 +55,16 @@ export async function loadCalendar(): Promise<Schemas["CalendarResponse"]> {
   return unwrap(data, error);
 }
 
+export async function loadFeeds(): Promise<Schemas["FeedListResponse"]> {
+  const { data, error } = await api.GET("/news/feeds", {});
+  return unwrap(data, error);
+}
+
+export async function addFeed(name: string, url: string): Promise<Schemas["FeedListResponse"]> {
+  const { data, error } = await api.POST("/news/feeds", { body: { name, url } });
+  return unwrap(data, error);
+}
+
 // Unified chart/quote loaders. A pair (e.g. BTC/USD) routes to Kraken via the
 // /crypto endpoint (a slash can't pass through /chart/{symbol}); a plain ticker
 // routes to /chart or /quote (IBKR). Both normalize to a common shape so the

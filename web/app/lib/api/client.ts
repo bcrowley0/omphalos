@@ -21,3 +21,4 @@ export type Balance = Schemas["Balance"];
 export type NewsItem = Schemas["NewsItem"];
 export type YieldPoint = Schemas["YieldPoint"];
 export type SourceStatus = Schemas["SourceStatus"];
+export type FeedInfo = Schemas["FeedInfo"];

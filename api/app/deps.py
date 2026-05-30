@@ -14,10 +14,12 @@ from .adapters.fred import FredAdapter
 from .adapters.kraken import KrakenAdapter
 from .adapters.mock import MockAdapter
 from .adapters.registry import registry
+from .adapters.rss import RssAdapter
 
 registry.register(MockAdapter())
 registry.register(KrakenAdapter())
 registry.register(FredAdapter())
+registry.register(RssAdapter())
 
 
 def get_registry():

@@ -21,11 +21,15 @@ from .adapters.base import (
     Unauthenticated,
 )
 from .deps import get_registry
+from .adapters.rss import RssAdapter
 from .models import (
+    AddFeedRequest,
     Balance,
     CalendarResponse,
     CandlesResponse,
     CryptoResponse,
+    FeedInfo,
+    FeedListResponse,
     NewsResponse,
     PortfolioResponse,
     Position,
@@ -202,6 +206,30 @@ async def news(feed: str | None = Query(default=None)) -> NewsResponse:
         return NewsResponse(status=status, message=msg, feed=feed)
     status = SourceStatus.OK if items else SourceStatus.EMPTY
     return NewsResponse(status=status, feed=feed, items=items)
+
+
+def _rss() -> RssAdapter | None:
+    adapter = _adapter("rss")
+    return adapter if isinstance(adapter, RssAdapter) else None
+
+
+@router.get("/news/feeds", response_model=FeedListResponse, tags=["news"])
+async def list_feeds() -> FeedListResponse:
+    rss = _rss()
+    if rss is None:
+        return FeedListResponse(status=SourceStatus.SOURCE_DOWN)
+    feeds = [FeedInfo(name=n, url=u) for n, u in rss.list_feeds().items()]
+    return FeedListResponse(status=SourceStatus.OK, feeds=feeds)
+
+
+@router.post("/news/feeds", response_model=FeedListResponse, tags=["news"])
+async def add_feed(req: AddFeedRequest) -> FeedListResponse:
+    rss = _rss()
+    if rss is None:
+        return FeedListResponse(status=SourceStatus.SOURCE_DOWN)
+    rss.add_feed(req.name, req.url)
+    feeds = [FeedInfo(name=n, url=u) for n, u in rss.list_feeds().items()]
+    return FeedListResponse(status=SourceStatus.OK, feeds=feeds)
 
 
 # --------------------------------------------------------------------------- #
