@@ -1,7 +1,9 @@
 """Tests for chart span/interval controls: enums, maps, adapter mappings."""
 
+import httpx
 import pytest
 
+from app.adapters.ibkr import IbkrAdapter, ibkr_bar, ibkr_period, parse_history
 from app.adapters.kraken import kraken_ohlc_params
 from app.adapters.mock import MockAdapter
 from app.models import (
@@ -92,3 +94,59 @@ def test_kraken_ohlc_params_one_minute_bar():
     assert minutes == 1
     raw = (now_ms - SPAN_MS[Span.D1]) // 1000
     assert since == raw - (raw % 60)
+
+
+def test_ibkr_bar_and_period_tokens():
+    assert ibkr_bar(Interval.M5) == "5min"
+    assert ibkr_bar(Interval.M15) == "15min"
+    assert ibkr_bar(Interval.H4) == "4h"
+    assert ibkr_bar(Interval.W1) == "1w"
+    assert ibkr_period(Span.D5) == "5d"
+    assert ibkr_period(Span.M1) == "1m"
+    assert ibkr_period(Span.Y5) == "5y"
+
+
+def test_parse_history_keeps_ms_timestamps():
+    payload = {"data": [{"t": 1_700_000_000_000, "o": 1, "h": 2, "l": 0.5, "c": 1.5, "v": 99}]}
+    candles = parse_history(payload)
+    assert len(candles) == 1
+    c = candles[0]
+    assert c.t == 1_700_000_000_000  # already ms — NOT multiplied
+    assert (c.o, c.h, c.l, c.c, c.v) == (1.0, 2.0, 0.5, 1.5, 99.0)
+
+
+def test_parse_history_empty_payload():
+    assert parse_history({}) == []
+    assert parse_history({"data": []}) == []
+
+
+async def test_ibkr_get_candles_drives_history_endpoint():
+    captured = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        path = req.url.path
+        if path.endswith("/tickle"):
+            return httpx.Response(200, json={"iserver": {"authStatus": {"authenticated": True}}})
+        if path.endswith("/iserver/accounts"):
+            return httpx.Response(200, json=[{"id": "DU1"}])
+        if path.endswith("/iserver/secdef/search"):
+            return httpx.Response(
+                200,
+                json=[{"conid": 265598, "description": "NASDAQ", "sections": [{"secType": "STK"}]}],
+            )
+        if path.endswith("/iserver/marketdata/history"):
+            captured["query"] = dict(req.url.params)
+            return httpx.Response(
+                200, json={"data": [{"t": 1_700_000_000_000, "o": 1, "h": 2, "l": 0.5, "c": 1.5, "v": 9}]}
+            )
+        return httpx.Response(404, json={})
+
+    a = IbkrAdapter()
+    a._client = httpx.AsyncClient(
+        base_url="https://gw.local/v1/api", transport=httpx.MockTransport(handler)
+    )
+    candles = await a.get_candles("AAPL", interval=Interval.H4, span=Span.Y1)
+    assert len(candles) == 1 and candles[0].c == 1.5
+    assert captured["query"]["conid"] == "265598"
+    assert captured["query"]["bar"] == "4h"
+    assert captured["query"]["period"] == "1y"

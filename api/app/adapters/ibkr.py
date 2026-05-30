@@ -21,8 +21,8 @@ import httpx
 
 from ..config import get_settings
 from ..http import get_json, post_form
-from ..models import Candle, Position, Quote
-from .base import Adapter, NotSupported, SourceUnavailable, Unauthenticated
+from ..models import Candle, Interval, Position, Quote, Span
+from .base import Adapter, SourceUnavailable, Unauthenticated
 
 # Numeric snapshot field codes -> canonical names (IBKR Web API reference).
 _FIELDS: dict[str, str] = {
@@ -106,6 +106,57 @@ def parse_position(p: dict[str, Any]) -> Position:
         unrealized_pnl=float(p.get("unrealizedPnl", 0) or 0),
         source="ibkr",
     )
+
+
+_IBKR_BAR: dict[Interval, str] = {
+    Interval.M1: "1min",
+    Interval.M5: "5min",
+    Interval.M15: "15min",
+    Interval.H1: "1h",
+    Interval.H4: "4h",
+    Interval.D1: "1d",
+    Interval.W1: "1w",
+}
+
+_IBKR_PERIOD: dict[Span, str] = {
+    Span.D1: "1d",
+    Span.D5: "5d",
+    Span.M1: "1m",
+    Span.M3: "3m",
+    Span.Y1: "1y",
+    Span.Y5: "5y",
+}
+
+
+def ibkr_bar(interval: Interval) -> str:
+    """Canonical interval -> IBKR `bar` token. Pure/testable."""
+    return _IBKR_BAR[interval]
+
+
+def ibkr_period(span: Span) -> str:
+    """Canonical span -> IBKR `period` token. Pure/testable."""
+    return _IBKR_PERIOD[span]
+
+
+def parse_history(payload: dict[str, Any]) -> list[Candle]:
+    """Pure: /iserver/marketdata/history payload -> canonical Candles.
+
+    IBKR `t` is already epoch milliseconds (unlike Kraken seconds) — do NOT scale.
+    """
+    rows = (payload or {}).get("data") or []
+    candles: list[Candle] = []
+    for r in rows:
+        candles.append(
+            Candle(
+                t=int(r["t"]),
+                o=float(r["o"]),
+                h=float(r["h"]),
+                l=float(r["l"]),
+                c=float(r["c"]),
+                v=float(r.get("v") or 0),
+            )
+        )
+    return candles
 
 
 class IbkrAdapter(Adapter):
@@ -196,7 +247,20 @@ class IbkrAdapter(Adapter):
         rows = positions if isinstance(positions, list) else []
         return [parse_position(p) for p in rows]
 
-    async def get_candles(self, symbol: str, interval: str = "1d") -> list[Candle]:
-        # Historical bars via /iserver/marketdata/history is feasible but out of
-        # scope for v1; charts for equities can be added later.
-        raise NotSupported("ibkr historical candles not implemented in v1")
+    async def get_candles(
+        self, symbol: str, interval: Interval = Interval.D1, span: Span = Span.M1
+    ) -> list[Candle]:
+        symbol = symbol.upper()
+        await self._ensure_session()
+        await self._prime()
+        conid = await self._resolve_conid(symbol)
+        params = {"conid": conid, "period": ibkr_period(span), "bar": ibkr_bar(interval)}
+        candles: list[Candle] = []
+        # The first history request can return empty while the gateway warms up.
+        for _ in range(3):
+            data = await self._get("/iserver/marketdata/history", params=params)
+            candles = parse_history(data if isinstance(data, dict) else {})
+            if candles:
+                break
+            await asyncio.sleep(0.4)
+        return candles
