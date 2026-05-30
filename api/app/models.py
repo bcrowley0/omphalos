@@ -151,7 +151,7 @@ class CalendarResponse(CamelModel):
 
 class FeedInfo(CamelModel):
     name: str
-    url: str
+    urls: list[str] = []  # a named source is a group of section feed URLs
 
 
 class FeedListResponse(CamelModel):

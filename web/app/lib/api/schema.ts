@@ -263,8 +263,11 @@ export interface components {
         FeedInfo: {
             /** Name */
             name: string;
-            /** Url */
-            url: string;
+            /**
+             * Urls
+             * @default []
+             */
+            urls: string[];
         };
         /** FeedListResponse */
         FeedListResponse: {

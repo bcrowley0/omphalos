@@ -70,7 +70,7 @@ function FeedBar({ active }: { active?: string }) {
             <button
               key={f.name}
               onClick={() => terminalStore.dispatch(`news ${f.name}`)}
-              title={f.url}
+              title={f.urls.join("\n")}
               style={{
                 background: isActive ? "var(--panel)" : "transparent",
                 color: isActive ? "var(--foreground)" : "var(--muted)",

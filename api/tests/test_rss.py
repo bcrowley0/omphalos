@@ -1,6 +1,7 @@
 """Unit tests for RSS parsing/normalization (pure; no network)."""
 
-from app.adapters.rss import parse_feed
+from app.adapters.rss import dedupe_sort_news, parse_feed
+from app.models import NewsItem
 
 _SAMPLE = """<?xml version="1.0"?>
 <rss version="2.0"><channel>
@@ -35,3 +36,14 @@ def test_parse_feed_normalizes_items():
 def test_parse_feed_handles_missing_date():
     items = parse_feed(_SAMPLE, "Sample")
     assert items[1].published_ts is None
+
+
+def test_dedupe_sort_news_dedupes_by_url_and_sorts_newest_first():
+    def mk(url, ts):
+        return NewsItem(title="t", summary="", url=url, published_ts=ts, feed="X")
+
+    out = dedupe_sort_news([mk("a", 100), mk("b", 300), mk("a", 100), mk("c", None)])
+    urls = [i.url for i in out]
+    assert urls[0] == "b"  # newest first
+    assert urls.count("a") == 1  # deduped by url
+    assert urls[-1] == "c"  # undated sinks to the end

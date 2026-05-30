@@ -223,7 +223,7 @@ async def list_feeds() -> FeedListResponse:
     rss = _rss()
     if rss is None:
         return FeedListResponse(status=SourceStatus.SOURCE_DOWN)
-    feeds = [FeedInfo(name=n, url=u) for n, u in rss.list_feeds().items()]
+    feeds = [FeedInfo(name=n, urls=u) for n, u in rss.list_feeds().items()]
     return FeedListResponse(status=SourceStatus.OK, feeds=feeds)
 
 
@@ -233,7 +233,7 @@ async def add_feed(req: AddFeedRequest) -> FeedListResponse:
     if rss is None:
         return FeedListResponse(status=SourceStatus.SOURCE_DOWN)
     rss.add_feed(req.name, req.url)
-    feeds = [FeedInfo(name=n, url=u) for n, u in rss.list_feeds().items()]
+    feeds = [FeedInfo(name=n, urls=u) for n, u in rss.list_feeds().items()]
     return FeedListResponse(status=SourceStatus.OK, feeds=feeds)
 
 
