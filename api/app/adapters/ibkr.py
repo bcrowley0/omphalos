@@ -146,6 +146,8 @@ def parse_history(payload: dict[str, Any]) -> list[Candle]:
     rows = (payload or {}).get("data") or []
     candles: list[Candle] = []
     for r in rows:
+        # Price fields are required; volume is absent on some IBKR instruments,
+        # so it defaults to 0.
         candles.append(
             Candle(
                 t=int(r["t"]),

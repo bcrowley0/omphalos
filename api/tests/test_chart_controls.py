@@ -120,6 +120,7 @@ def test_parse_history_empty_payload():
     assert parse_history({"data": []}) == []
 
 
+@pytest.mark.asyncio
 async def test_ibkr_get_candles_drives_history_endpoint():
     captured = {}
 
@@ -150,3 +151,35 @@ async def test_ibkr_get_candles_drives_history_endpoint():
     assert captured["query"]["conid"] == "265598"
     assert captured["query"]["bar"] == "4h"
     assert captured["query"]["period"] == "1y"
+
+
+@pytest.mark.asyncio
+async def test_ibkr_get_candles_retries_when_first_history_empty():
+    state = {"history_calls": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        path = req.url.path
+        if path.endswith("/tickle"):
+            return httpx.Response(200, json={"iserver": {"authStatus": {"authenticated": True}}})
+        if path.endswith("/iserver/accounts"):
+            return httpx.Response(200, json=[{"id": "DU1"}])
+        if path.endswith("/iserver/secdef/search"):
+            return httpx.Response(
+                200, json=[{"conid": 1, "description": "NASDAQ", "sections": [{"secType": "STK"}]}]
+            )
+        if path.endswith("/iserver/marketdata/history"):
+            state["history_calls"] += 1
+            if state["history_calls"] == 1:
+                return httpx.Response(200, json={"data": []})  # first call empty -> retry
+            return httpx.Response(
+                200, json={"data": [{"t": 1_700_000_000_000, "o": 1, "h": 2, "l": 0.5, "c": 1.5, "v": 9}]}
+            )
+        return httpx.Response(404, json={})
+
+    a = IbkrAdapter()
+    a._client = httpx.AsyncClient(
+        base_url="https://gw.local/v1/api", transport=httpx.MockTransport(handler)
+    )
+    candles = await a.get_candles("AAPL")
+    assert state["history_calls"] == 2
+    assert len(candles) == 1
