@@ -14,18 +14,27 @@ export default function Terminal() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <header
         style={{
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: "1fr auto 1fr",
           alignItems: "center",
-          justifyContent: "space-between",
+          gap: "1rem",
           padding: "0.6rem 1.25rem",
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", gap: "0.6rem" }}>
-          <strong>Omphalos</strong>
+        {/* left: the command / search bar */}
+        <div style={{ minWidth: 0 }}>
+          <CommandBar />
+        </div>
+        {/* center: brand */}
+        <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+          <strong>Omphalos</strong>{" "}
           <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>finance terminal</span>
         </div>
-        <HealthChip />
+        {/* right: backend health */}
+        <div style={{ justifySelf: "end" }}>
+          <HealthChip />
+        </div>
       </header>
 
       <TabStrip tabs={tabs} activeId={activeId} />
@@ -38,17 +47,14 @@ export default function Terminal() {
           <div style={{ padding: "3rem 1.25rem", color: "var(--muted)" }}>
             <p style={{ marginBottom: "0.5rem" }}>No widgets open.</p>
             <p>
-              Type a command below to begin — e.g. <code style={{ color: "var(--accent)" }}>chart AAPL</code>,{" "}
+              Type a command in the bar above to begin — e.g.{" "}
+              <code style={{ color: "var(--accent)" }}>chart AAPL</code>,{" "}
               <code style={{ color: "var(--accent)" }}>crypto BTC/USD</code>, or{" "}
               <code style={{ color: "var(--accent)" }}>help</code>.
             </p>
           </div>
         )}
       </div>
-
-      <footer style={{ borderTop: "1px solid var(--border)", padding: "0.75rem 1.25rem" }}>
-        <CommandBar />
-      </footer>
     </div>
   );
 }
