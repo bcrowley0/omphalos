@@ -55,9 +55,9 @@ npm install   # first time only
 npm run dev
 ```
 
-Open <http://localhost:3000>. The page fetches `/api/health` through the proxy and
-renders the backend's response, with explicit loading / error states and an
-on-demand **refresh** button.
+Open <http://localhost:3000> — the finance terminal. Type commands in the bar (see
+below); a backend-health chip in the header shows connectivity. Every widget has
+explicit loading / error / empty / source states and an on-demand **refresh**.
 
 ## Dependency management
 
@@ -69,19 +69,43 @@ on-demand **refresh** button.
   ```
   Install from the lockfile with `pip install -r requirements.txt`.
 
-## Secrets
+## Secrets & data sources
 
 Secrets live **only** in `api/.env` (gitignored), loaded via pydantic-settings.
 `api/.env.example` documents the variables with placeholders. No secret ever lives
-in frontend code or in git.
+in frontend code or in git. Every external call is proxied through the backend.
 
-## Notes for later phases
+| Source | Used by | Auth | Without it |
+| --- | --- | --- | --- |
+| Kraken public | `crypto`, `chart <PAIR>` | none | works out of the box |
+| RSS (FT/WSJ/custom) | `news` | none | works out of the box |
+| FRED | `yield` | `FRED_API_KEY` | shows the **unauthenticated** state |
+| Kraken private | `port` balances | `KRAKEN_API_KEY`/`SECRET` | shows the **unauthenticated** state |
+| IBKR gateway | `port` positions, equity `quote`/`chart` | running CP Gateway | shows **gateway down** / **log in** |
 
-- **IBKR (Phase 5):** integration uses IBKR's Client Portal Gateway, a local Java
-  program you log into through the browser on the same machine. The gateway uses a
-  self-signed cert (TLS verification is disabled for the localhost gateway only).
-  Its same-machine manual browser login will complicate any future server
-  deployment.
+Get a free FRED key at <https://fred.stlouisfed.org/docs/api/api_key.html> and a
+read-only Kraken key in your Kraken account; put them in `api/.env`.
+
+## IBKR Client Portal Gateway setup
+
+Equity quotes and IBKR positions require IBKR's **Client Portal Gateway** running
+on the same machine:
+
+1. Download the Client Portal Gateway from IBKR and start it (a local Java
+   program). It listens on `https://localhost:5000` with a **self-signed cert**.
+2. Open <https://localhost:5000> in your browser and **log in** to your IBKR
+   account. The session must stay authenticated.
+3. Set `IBKR_GATEWAY_BASE_URL` in `api/.env` if your gateway differs from the
+   default `https://localhost:5000/v1/api`.
+
+The backend disables TLS verification **for this localhost gateway client only**
+(never globally). The terminal distinguishes three states: *gateway down* (not
+running), *log in at the gateway* (running but not authenticated), and connected.
+
+> **Future deployment caveat:** the gateway requires a manual, same-machine
+> browser login, which will complicate any future server-side deployment — the
+> gateway can't be headlessly authenticated. This is noted for later; not solved
+> now.
 
 ## Commands (the terminal)
 
@@ -117,23 +141,29 @@ frontend relies on therefore breaks the build, not runtime.
 
 ## Tests
 
-Pure functions (command parser, symbol router, tab mapping) and the terminal store
-are unit-tested with Vitest:
-
 ```bash
-cd web && npm test
+cd web && npm test     # Vitest: parser, router, tab mapping, terminal store
+cd api && ./.venv/bin/pytest    # pytest: adapter normalization, Kraken signing, IBKR session
 ```
 
 ## Status
 
-Built in phases (see `PROMPT.md`).
+Built in phases (see `PROMPT.md`). All phases complete:
 
-- **Phase 0 (scaffold) — complete:** monorepo, health-check round-trip through the
-  proxy, git hygiene, pinned versions, committed lockfiles.
-- **Phase 1 (framework on mock data) — complete:** backend adapter interface +
-  registry + `MockAdapter` serving the canonical shapes; generated typed frontend
-  client; unit-tested command parser + symbol router; tabbed terminal shell with
-  `localStorage` persistence; widgets for every command wired to mock data through
-  the canonical model, with shared loading/error/empty/source-status UI.
+- **Phase 0 — scaffold:** monorepo, health round-trip through the proxy, git
+  hygiene, pinned versions, committed lockfiles.
+- **Phase 1 — framework on mock data:** async adapter interface + registry +
+  `MockAdapter`; generated typed frontend client; unit-tested command parser +
+  symbol router; tabbed terminal with `localStorage` persistence; a widget per
+  command with shared loading/error/empty/source-status UI.
+- **Phase 2 — FRED + Kraken public (real):** shared httpx layer with structured
+  outbound logging + TTL cache; Kraken Ticker/OHLC; FRED yield curve.
+- **Phase 3 — Kraken private:** signed balances (HMAC-SHA512 verified against
+  Kraken's published vector); missing key → unauthenticated state.
+- **Phase 4 — News:** generic server-side RSS adapter (FT/WSJ + runtime feeds),
+  headlines linking out only.
+- **Phase 5 — IBKR CP Gateway (read-only):** session lifecycle (tickle/auth
+  status), conid resolution + cache, documented numeric snapshot fields, positions;
+  three explicit gateway states; TLS off for the localhost gateway only.
 
 [pip-tools]: https://github.com/jazzband/pip-tools

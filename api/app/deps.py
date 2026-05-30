@@ -11,6 +11,7 @@ tests, but normal routing targets the real sources.
 """
 
 from .adapters.fred import FredAdapter
+from .adapters.ibkr import IbkrAdapter
 from .adapters.kraken import KrakenAdapter
 from .adapters.mock import MockAdapter
 from .adapters.registry import registry
@@ -20,6 +21,7 @@ registry.register(MockAdapter())
 registry.register(KrakenAdapter())
 registry.register(FredAdapter())
 registry.register(RssAdapter())
+registry.register(IbkrAdapter())
 
 
 def get_registry():
