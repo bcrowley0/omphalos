@@ -95,6 +95,18 @@ class YieldPoint(CamelModel):
     obs_date: int  # UTC epoch ms
 
 
+class AsOfCurve(CamelModel):
+    """A yield curve as of one observation date (latest, a relative lookback, or
+    an exact calendar date). `obs_date` is the most recent per-tenor observation
+    actually used; `requested_date` is the target as-of date."""
+
+    key: str
+    label: str
+    requested_date: int
+    obs_date: int
+    points: list[YieldPoint] = []
+
+
 # --------------------------------------------------------------------------- #
 # Response envelopes — each carries an explicit status so the frontend can
 # render the right UI state. Loading is handled client-side.
@@ -132,7 +144,7 @@ class PortfolioResponse(CamelModel):
 class YieldCurveResponse(CamelModel):
     status: SourceStatus
     message: str | None = None
-    points: list[YieldPoint] = []
+    curves: list[AsOfCurve] = []
 
 
 class NewsResponse(CamelModel):
