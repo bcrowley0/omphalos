@@ -11,10 +11,19 @@ import hashlib
 import math
 import time
 
-from ..models import Balance, Candle, NewsItem, Position, Quote, YieldPoint
+from ..models import (
+    Balance,
+    Candle,
+    INTERVAL_MS,
+    Interval,
+    NewsItem,
+    Position,
+    Quote,
+    SPAN_MS,
+    Span,
+    YieldPoint,
+)
 from .base import Adapter
-
-_DAY_MS = 86_400_000
 
 
 def _seed(symbol: str) -> int:
@@ -29,14 +38,18 @@ class MockAdapter(Adapter):
     name = "mock"
 
     # -- candles ----------------------------------------------------------- #
-    async def get_candles(self, symbol: str, interval: str = "1d", count: int = 120) -> list[Candle]:
+    async def get_candles(
+        self, symbol: str, interval: Interval = Interval.D1, span: Span = Span.M1
+    ) -> list[Candle]:
+        step = INTERVAL_MS[interval]
+        count = min(max(SPAN_MS[span] // step, 2), 720)
         seed = _seed(symbol)
         base = 50 + (seed % 450)  # base price 50..500
         now = _now_ms()
         candles: list[Candle] = []
         price = float(base)
         for i in range(count):
-            t = now - (count - 1 - i) * _DAY_MS
+            t = now - (count - 1 - i) * step
             # deterministic pseudo-random walk
             drift = math.sin((i + seed) / 9.0) * (base * 0.02)
             wobble = math.cos((i * 1.7 + seed) / 5.0) * (base * 0.015)
@@ -53,7 +66,7 @@ class MockAdapter(Adapter):
 
     # -- quote ------------------------------------------------------------- #
     async def get_quote(self, symbol: str) -> Quote:
-        candles = await self.get_candles(symbol, count=2)
+        candles = await self.get_candles(symbol)
         prev, latest = candles[-2].c, candles[-1].c
         change = round(latest - prev, 2)
         change_pct = round((change / prev) * 100, 2) if prev else 0.0

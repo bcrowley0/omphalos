@@ -44,3 +44,33 @@ def test_crypto_response_default_pair_is_coherent():
     resp = CryptoResponse(status=SourceStatus.EMPTY, pair="BTC/USD", source="kraken")
     assert resp.interval == Interval.H1
     assert resp.span == Span.M1
+
+
+import pytest
+
+from app.adapters.mock import MockAdapter
+
+
+@pytest.mark.asyncio
+async def test_mock_candle_count_and_step_follow_span_and_interval():
+    a = MockAdapter()
+    candles = await a.get_candles("AAPL", interval=Interval.M5, span=Span.D1)
+    # 1 day / 5 minutes = 288 bars
+    assert len(candles) == 288
+    # Bars are spaced one interval apart.
+    assert candles[1].t - candles[0].t == INTERVAL_MS[Interval.M5]
+
+
+@pytest.mark.asyncio
+async def test_mock_candle_count_is_capped_at_720():
+    a = MockAdapter()
+    candles = await a.get_candles("AAPL", interval=Interval.M1, span=Span.Y5)
+    assert len(candles) == 720
+
+
+@pytest.mark.asyncio
+async def test_mock_quote_still_works_after_signature_change():
+    a = MockAdapter()
+    q = await a.get_quote("AAPL")
+    assert q.symbol == "AAPL"
+    assert q.last is not None
