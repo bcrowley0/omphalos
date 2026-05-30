@@ -1,0 +1,85 @@
+"use client";
+
+import { useCallback } from "react";
+import { fmt, ResourceView, signColor, WidgetFrame } from "../components/ui";
+import { loadPortfolio } from "../lib/loaders";
+import { useResource } from "../lib/useResource";
+
+const th: React.CSSProperties = { textAlign: "right", color: "var(--muted)", fontWeight: 400, padding: "0.3rem 0.6rem" };
+const td: React.CSSProperties = { textAlign: "right", padding: "0.3rem 0.6rem" };
+const tdl: React.CSSProperties = { ...td, textAlign: "left" };
+
+export default function PortfolioWidget() {
+  const load = useCallback(() => loadPortfolio(), []);
+  const { state, refresh } = useResource(load);
+
+  return (
+    <WidgetFrame title="Portfolio" onRefresh={refresh} busy={state.kind === "loading"}>
+      <ResourceView state={state}>
+        {(data) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <section>
+              <h3 style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "0.4rem" }}>
+                POSITIONS (IBKR)
+              </h3>
+              {data.positions.length === 0 ? (
+                <p style={{ color: "var(--muted)" }}>No positions.</p>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...th, textAlign: "left" }}>Symbol</th>
+                      <th style={th}>Qty</th>
+                      <th style={th}>Avg Cost</th>
+                      <th style={th}>Mkt Value</th>
+                      <th style={th}>Unrl P&amp;L</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.positions.map((p) => (
+                      <tr key={p.symbol} style={{ borderTop: "1px solid var(--border)" }}>
+                        <td style={tdl}>{p.symbol}</td>
+                        <td style={td}>{fmt(p.qty, 0)}</td>
+                        <td style={td}>{fmt(p.avgCost)}</td>
+                        <td style={td}>{fmt(p.marketValue)}</td>
+                        <td style={{ ...td, color: signColor(p.unrealizedPnl) }}>{fmt(p.unrealizedPnl)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
+            <section>
+              <h3 style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "0.4rem" }}>
+                BALANCES (Kraken)
+              </h3>
+              {data.balances.length === 0 ? (
+                <p style={{ color: "var(--muted)" }}>No balances.</p>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...th, textAlign: "left" }}>Asset</th>
+                      <th style={th}>Total</th>
+                      <th style={th}>Available</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.balances.map((b) => (
+                      <tr key={b.asset} style={{ borderTop: "1px solid var(--border)" }}>
+                        <td style={tdl}>{b.asset}</td>
+                        <td style={td}>{fmt(b.total, 4)}</td>
+                        <td style={td}>{fmt(b.available, 4)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          </div>
+        )}
+      </ResourceView>
+    </WidgetFrame>
+  );
+}

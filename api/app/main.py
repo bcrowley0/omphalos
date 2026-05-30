@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from .config import get_settings
+from .routers import router as widgets_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,3 +39,6 @@ def health() -> HealthResponse:
     settings = get_settings()
     logger.info("health check served")
     return HealthResponse(status="ok", service=settings.app_name, version=app.version)
+
+
+app.include_router(widgets_router)

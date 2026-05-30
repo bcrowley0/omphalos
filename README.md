@@ -83,10 +83,57 @@ in frontend code or in git.
   Its same-machine manual browser login will complicate any future server
   deployment.
 
+## Commands (the terminal)
+
+Type into the command bar (⌘/Ctrl-K focuses it; ↑/↓ recalls history). Each command
+opens or focuses a widget tab:
+
+| Command | Widget |
+| --- | --- |
+| `chart <SYMBOL>` | price chart (Lightweight Charts) |
+| `quote <SYMBOL>` | snapshot quote |
+| `watch <SYMBOL>` / `unwatch <SYMBOL>` | add/remove watchlist symbol (opens watchlist) |
+| `crypto <PAIR>` | crypto ticker + chart, e.g. `crypto BTC/USD` |
+| `port` | portfolio: positions + balances |
+| `yield` | Treasury yield curve |
+| `news [feed]` | headlines (optional feed), linking out |
+| `cal` | economic calendar (stubbed "not implemented") |
+| `help` | command list |
+
+Open tabs and the watchlist persist in `localStorage` across refreshes. Unknown
+commands show an inline error.
+
+## Type contract & code generation
+
+The backend Pydantic models are the single source of truth. The frontend client is
+GENERATED from the backend OpenAPI schema — never hand-written:
+
+```bash
+cd web && npm run gen:api    # backend must be running on :8000
+```
+
+This writes `web/app/lib/api/schema.ts` (committed). A backend field change that the
+frontend relies on therefore breaks the build, not runtime.
+
+## Tests
+
+Pure functions (command parser, symbol router, tab mapping) and the terminal store
+are unit-tested with Vitest:
+
+```bash
+cd web && npm test
+```
+
 ## Status
 
-Built in phases (see `PROMPT.md`). **Phase 0 (scaffold) is complete:** monorepo,
-health-check round-trip through the proxy, git hygiene, pinned versions, committed
-lockfiles.
+Built in phases (see `PROMPT.md`).
+
+- **Phase 0 (scaffold) — complete:** monorepo, health-check round-trip through the
+  proxy, git hygiene, pinned versions, committed lockfiles.
+- **Phase 1 (framework on mock data) — complete:** backend adapter interface +
+  registry + `MockAdapter` serving the canonical shapes; generated typed frontend
+  client; unit-tested command parser + symbol router; tabbed terminal shell with
+  `localStorage` persistence; widgets for every command wired to mock data through
+  the canonical model, with shared loading/error/empty/source-status UI.
 
 [pip-tools]: https://github.com/jazzband/pip-tools
