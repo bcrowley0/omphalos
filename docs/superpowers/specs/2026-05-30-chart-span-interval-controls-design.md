@@ -61,8 +61,10 @@ hand-written duplicate interfaces.
 
 - Add `Interval` and `Span` str-enums in `api/app/models.py`.
 - Use them as the query-param types on `/chart/{symbol}` and
-  `/crypto/{base}/{quote_ccy}` (defaults: `interval=1d`, `span=1M` — final
-  defaults set in implementation).
+  `/crypto/{base}/{quote_ccy}`. The frontend always sends a `resolveRange`-d
+  (span, interval) pair, so the server-side param defaults are only a fallback
+  for direct API calls; they must be internally consistent — default `span=1M`
+  with its snap-default `interval=1h` (final defaults set in implementation).
 - **Echo** the resolved `interval` and `span` back in `CandlesResponse` and
   `CryptoResponse` so the UI reflects what it actually received (and can
   re-sync its button highlight after an auto-snap).
