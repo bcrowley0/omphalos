@@ -16,10 +16,11 @@ from ..cache import cache
 from ..http import get_text
 from ..models import FollowItem, NewsItem
 from .base import Adapter, SourceUnavailable
-from .rss import _UA, parse_feed
+from .rss import parse_feed
 
 _PERSON_TTL = 1800.0  # 30 min — "daily catch-up", avoids hammering
 _GOOGLE_NEWS = "Google News"
+_UA = "Mozilla/5.0 (Omphalos RSS reader)"
 
 
 def google_news_search_url(name: str) -> str:

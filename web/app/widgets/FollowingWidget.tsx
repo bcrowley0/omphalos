@@ -7,14 +7,7 @@ import { useResource } from "../lib/useResource";
 import { useTerminal } from "../lib/useTerminal";
 import { terminalStore } from "../lib/store";
 import type { FollowItem } from "../lib/api/client";
-
-function timeAgo(ts: number | null | undefined): string {
-  if (!ts) return "";
-  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  return hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`;
-}
+import { timeAgo } from "../lib/format";
 
 export default function FollowingWidget() {
   const { following } = useTerminal();
@@ -61,8 +54,9 @@ export default function FollowingWidget() {
           style={{ background: "transparent", color: "var(--foreground)", border: "1px solid var(--border)", borderRadius: 6, padding: "0.3rem 0.7rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.85rem" }}>+ follow</button>
       </div>
 
-      {following.length === 0 && <p style={{ color: "var(--muted)" }}>Not following anyone. Try <code>follow Andrej Karpathy</code>.</p>}
-
+      {following.length === 0 ? (
+        <p style={{ color: "var(--muted)" }}>Not following anyone. Try <code>follow Andrej Karpathy</code>.</p>
+      ) : (
       <ResourceView state={state}>
         {(data) => {
           const items: FollowItem[] = filter ? data.items.filter((i) => i.person === filter) : data.items;
@@ -98,6 +92,7 @@ export default function FollowingWidget() {
           );
         }}
       </ResourceView>
+      )}
     </WidgetFrame>
   );
 }

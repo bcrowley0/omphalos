@@ -6,14 +6,7 @@ import { loadPeopleFeed } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import { useTerminal } from "../lib/useTerminal";
 import { terminalStore } from "../lib/store";
-
-function timeAgo(ts: number | null | undefined): string {
-  if (!ts) return "";
-  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  return hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`;
-}
+import { timeAgo } from "../lib/format";
 
 export default function PersonFeedWidget({ person }: { person: string }) {
   const { following } = useTerminal();
