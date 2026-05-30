@@ -83,6 +83,7 @@ def test_kraken_ohlc_params_minutes_and_bar_aligned_since():
     raw = (now_ms - SPAN_MS[Span.M1]) // 1000
     bar_s = 60 * 60
     assert since == raw - (raw % bar_s)  # aligned to the bar boundary
+    assert since == 1_697_407_200  # fixed oracle: 2023-10-15T22:00:00Z, floored to the hour
 
 
 def test_kraken_ohlc_params_one_minute_bar():

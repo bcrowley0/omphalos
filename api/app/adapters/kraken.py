@@ -114,6 +114,11 @@ def kraken_ohlc_params(interval: Interval, span: Span, now_ms: int) -> tuple[int
     Returns (interval_minutes, since_seconds). `since` is epoch SECONDS (Kraken's
     unit) aligned down to the bar boundary so the cache key stays stable within a
     bar (avoids a fresh fetch every call). Pure/testable.
+
+    NOTE: Kraken's OHLC endpoint returns at most 720 candles and silently
+    truncates beyond that. Callers must keep (span / interval) <= 720 bars so the
+    full requested window is returned; the frontend `resolveRange` valid-interval
+    map enforces this for every UI-offered pair.
     """
     minutes = INTERVAL_MS[interval] // 60_000
     since_s = (now_ms - SPAN_MS[span]) // 1000
