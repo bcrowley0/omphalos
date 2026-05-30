@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { fmt, ResourceView, signColor, StatusNotice, WidgetFrame } from "../components/ui";
-import { loadQuote } from "../lib/loaders";
+import { loadQuoteData } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import type { Quote } from "../lib/api/client";
 
@@ -34,7 +34,7 @@ function QuoteBody({ q }: { q: Quote }) {
 }
 
 export default function QuoteWidget({ symbol }: { symbol: string }) {
-  const load = useCallback(() => loadQuote(symbol), [symbol]);
+  const load = useCallback(() => loadQuoteData(symbol), [symbol]);
   const { state, refresh } = useResource(load);
   const source = state.kind === "ok" ? state.data.quote?.source : undefined;
 

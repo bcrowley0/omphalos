@@ -1,5 +1,6 @@
 import { api } from "./api/client";
 import type { Schemas } from "./api/client";
+import { routeSymbol } from "./command/router";
 
 // Thin wrappers over the typed client. Each returns the canonical response
 // envelope (or throws on a transport/HTTP failure, which useResource maps to
@@ -54,6 +55,41 @@ export async function loadCalendar(): Promise<Schemas["CalendarResponse"]> {
   return unwrap(data, error);
 }
 
+// Unified chart/quote loaders. A pair (e.g. BTC/USD) routes to Kraken via the
+// /crypto endpoint (a slash can't pass through /chart/{symbol}); a plain ticker
+// routes to /chart or /quote (IBKR). Both normalize to a common shape so the
+// widgets stay source-agnostic.
+export type ChartData = {
+  status: Schemas["SourceStatus"];
+  message?: string | null;
+  source: string;
+  candles: Schemas["Candle"][];
+};
+
+export async function loadChartData(symbol: string): Promise<ChartData> {
+  if (routeSymbol(symbol) === "kraken") {
+    const r = await loadCrypto(symbol);
+    return { status: r.status, message: r.message, source: r.source, candles: r.candles };
+  }
+  const r = await loadChart(symbol);
+  return { status: r.status, message: r.message, source: r.source, candles: r.candles };
+}
+
+export type QuoteData = {
+  status: Schemas["SourceStatus"];
+  message?: string | null;
+  quote: Schemas["Quote"] | null | undefined;
+};
+
+export async function loadQuoteData(symbol: string): Promise<QuoteData> {
+  if (routeSymbol(symbol) === "kraken") {
+    const r = await loadCrypto(symbol);
+    return { status: r.status, message: r.message, quote: r.quote };
+  }
+  const r = await loadQuote(symbol);
+  return { status: r.status, message: r.message, quote: r.quote };
+}
+
 // Composite loader for the watchlist: fetch a quote per watched symbol. Returns
 // an envelope-shaped object so it flows through ResourceView like the others.
 export type WatchlistData = {
@@ -66,7 +102,7 @@ export async function loadWatchlist(symbols: string[]): Promise<WatchlistData> {
   if (symbols.length === 0) {
     return { status: "empty", message: "Watchlist is empty. Add with: watch <SYMBOL>", quotes: [] };
   }
-  const results = await Promise.all(symbols.map((s) => loadQuote(s)));
+  const results = await Promise.all(symbols.map((s) => loadQuoteData(s)));
   const quotes = results.map((r) => r.quote).filter((q): q is Schemas["Quote"] => Boolean(q));
   return { status: "ok", quotes };
 }

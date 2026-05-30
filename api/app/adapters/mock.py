@@ -29,7 +29,7 @@ class MockAdapter(Adapter):
     name = "mock"
 
     # -- candles ----------------------------------------------------------- #
-    def get_candles(self, symbol: str, interval: str = "1d", count: int = 120) -> list[Candle]:
+    async def get_candles(self, symbol: str, interval: str = "1d", count: int = 120) -> list[Candle]:
         seed = _seed(symbol)
         base = 50 + (seed % 450)  # base price 50..500
         now = _now_ms()
@@ -52,8 +52,8 @@ class MockAdapter(Adapter):
         return candles
 
     # -- quote ------------------------------------------------------------- #
-    def get_quote(self, symbol: str) -> Quote:
-        candles = self.get_candles(symbol, count=2)
+    async def get_quote(self, symbol: str) -> Quote:
+        candles = await self.get_candles(symbol, count=2)
         prev, latest = candles[-2].c, candles[-1].c
         change = round(latest - prev, 2)
         change_pct = round((change / prev) * 100, 2) if prev else 0.0
@@ -71,11 +71,11 @@ class MockAdapter(Adapter):
         )
 
     # -- portfolio --------------------------------------------------------- #
-    def get_positions(self) -> list[Position]:
+    async def get_positions(self) -> list[Position]:
         rows = [("AAPL", 50, 150.0), ("MSFT", 20, 300.0), ("NVDA", 15, 450.0)]
         out: list[Position] = []
         for sym, qty, avg in rows:
-            last = self.get_quote(sym).last or avg
+            last = (await self.get_quote(sym)).last or avg
             mv = round(last * qty, 2)
             out.append(
                 Position(
@@ -89,7 +89,7 @@ class MockAdapter(Adapter):
             )
         return out
 
-    def get_balances(self) -> list[Balance]:
+    async def get_balances(self) -> list[Balance]:
         return [
             Balance(asset="USD", total=12_500.00, available=12_500.00, source=self.name),
             Balance(asset="BTC", total=0.75, available=0.75, source=self.name),
@@ -97,7 +97,7 @@ class MockAdapter(Adapter):
         ]
 
     # -- news -------------------------------------------------------------- #
-    def get_news(self, feed: str | None = None) -> list[NewsItem]:
+    async def get_news(self, feed: str | None = None) -> list[NewsItem]:
         feed_name = feed or "Mock Wire"
         now = _now_ms()
         headlines = [
@@ -118,7 +118,7 @@ class MockAdapter(Adapter):
         ]
 
     # -- yield curve ------------------------------------------------------- #
-    def get_yield_curve(self) -> list[YieldPoint]:
+    async def get_yield_curve(self) -> list[YieldPoint]:
         # (label, years) for the canonical Treasury tenor set
         tenors = [
             ("1M", 1 / 12), ("3M", 0.25), ("6M", 0.5), ("1Y", 1.0), ("2Y", 2.0),

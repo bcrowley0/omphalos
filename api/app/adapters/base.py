@@ -39,22 +39,22 @@ class Adapter:
     #: stable lowercase identifier, e.g. "mock", "kraken", "ibkr", "fred"
     name: str = "base"
 
-    def get_candles(self, symbol: str, interval: str = "1d") -> list[Candle]:
+    async def get_candles(self, symbol: str, interval: str = "1d") -> list[Candle]:
         raise NotSupported(f"{self.name} does not support candles")
 
-    def get_quote(self, symbol: str) -> Quote:
+    async def get_quote(self, symbol: str) -> Quote:
         raise NotSupported(f"{self.name} does not support quotes")
 
-    def get_positions(self) -> list[Position]:
+    async def get_positions(self) -> list[Position]:
         raise NotSupported(f"{self.name} does not support positions")
 
-    def get_balances(self) -> list[Balance]:
+    async def get_balances(self) -> list[Balance]:
         raise NotSupported(f"{self.name} does not support balances")
 
-    def get_news(self, feed: str | None = None) -> list[NewsItem]:
+    async def get_news(self, feed: str | None = None) -> list[NewsItem]:
         raise NotSupported(f"{self.name} does not support news")
 
-    def get_yield_curve(self) -> list[YieldPoint]:
+    async def get_yield_curve(self) -> list[YieldPoint]:
         raise NotSupported(f"{self.name} does not support a yield curve")
 
     def place_order(self, *args, **kwargs):  # noqa: ANN002, ANN003

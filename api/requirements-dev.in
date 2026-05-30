@@ -1,0 +1,5 @@
+# Dev/test deps. Compile with:
+#   pip-compile requirements-dev.in -o requirements-dev.txt
+-r requirements.txt
+pytest
+pytest-asyncio
