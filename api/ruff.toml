@@ -1,0 +1,18 @@
+# Ruff: the Python linter + formatter for api/ (run from api/).
+#   ./.venv/bin/ruff check app tests      # lint
+#   ./.venv/bin/ruff format app tests      # format
+# Line length chosen to match the existing hand-written style and keep the
+# reformat diff small; readability over terseness.
+line-length = 100
+target-version = "py311"
+
+[lint]
+# Conservative default rule set (pyflakes F + pycodestyle E/W) plus import
+# sorting (I). Nothing aggressive that would force broad behavior-neutral churn.
+select = ["E", "F", "W", "I"]
+# The formatter owns code-line width; E501 then only flags un-splittable long
+# strings/URLs/comments, which are fine for readability. Don't hard-fail on them.
+ignore = ["E501"]
+
+[format]
+quote-style = "double"

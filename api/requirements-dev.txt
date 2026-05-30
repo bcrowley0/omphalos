@@ -85,6 +85,8 @@ pyyaml==6.0.3
     # via
     #   -r requirements.txt
     #   uvicorn
+ruff==0.15.15
+    # via -r requirements-dev.in
 sgmllib3k==1.0.0
     # via
     #   -r requirements.txt
