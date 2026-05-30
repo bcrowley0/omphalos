@@ -20,9 +20,9 @@ from .adapters.base import (
     SourceUnavailable,
     Unauthenticated,
 )
-from .deps import get_registry
 from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
+from .deps import get_registry
 from .models import (
     AddFeedRequest,
     Balance,

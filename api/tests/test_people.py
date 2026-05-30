@@ -1,4 +1,7 @@
+import httpx
+
 from app.adapters.people import (
+    PeopleAdapter,
     derive_kind,
     google_news_search_url,
     merge_dedupe_sort,
@@ -42,10 +45,6 @@ def test_merge_dedupe_sort_dedupes_by_url_and_sorts_desc():
     assert urls[-1] == "c"         # undated sinks to the end
 
 
-import httpx
-import pytest
-from app.adapters.people import PeopleAdapter
-
 _GNEWS_XML = """<?xml version="1.0"?><rss version="2.0"><channel>
 <item><title>PTJ on macro</title><link>https://news.google.com/rss/articles/a1</link>
 <description>teaser</description><pubDate>Wed, 05 Jun 2024 12:00:00 GMT</pubDate></item>
@@ -70,3 +69,18 @@ async def test_get_person_feed_merges_news_and_custom_feed():
     assert kinds == {"news", "video"}
     assert all(i.person == "Paul Tudor Jones" for i in items)
     assert items[0].published_ts >= (items[1].published_ts or 0)  # newest first
+
+
+async def test_get_person_feed_skips_a_failing_feed():
+    import httpx as _httpx
+
+    def handler(req: _httpx.Request) -> _httpx.Response:
+        if "news.google.com" in str(req.url):
+            return _httpx.Response(200, text=_GNEWS_XML)
+        raise _httpx.ConnectError("boom", request=req)  # the custom feed fails
+
+    adapter = PeopleAdapter()
+    adapter._client = _httpx.AsyncClient(transport=_httpx.MockTransport(handler))
+    items = await adapter.get_person_feed("Paul Tudor Jones", ["https://broken.example/rss"])
+    assert len(items) == 1                       # the news item survived
+    assert items[0].kind == "news"
