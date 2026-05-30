@@ -40,6 +40,54 @@ class SourceStatus(str, Enum):
     NOT_IMPLEMENTED = "not_implemented"
 
 
+class Interval(str, Enum):
+    """Candle size (bar granularity)."""
+
+    M1 = "1m"
+    M5 = "5m"
+    M15 = "15m"
+    H1 = "1h"
+    H4 = "4h"
+    D1 = "1d"
+    W1 = "1w"
+
+
+class Span(str, Enum):
+    """Chart lookback window."""
+
+    D1 = "1D"
+    D5 = "5D"
+    M1 = "1M"
+    M3 = "3M"
+    Y1 = "1Y"
+    Y5 = "5Y"
+
+
+_MIN_MS = 60_000
+_DAY_MS = 86_400_000
+
+# Bar length in epoch-ms, per interval.
+INTERVAL_MS: dict[Interval, int] = {
+    Interval.M1: 1 * _MIN_MS,
+    Interval.M5: 5 * _MIN_MS,
+    Interval.M15: 15 * _MIN_MS,
+    Interval.H1: 60 * _MIN_MS,
+    Interval.H4: 240 * _MIN_MS,
+    Interval.D1: 1440 * _MIN_MS,
+    Interval.W1: 10080 * _MIN_MS,
+}
+
+# Lookback window in epoch-ms, per span (calendar approximations).
+SPAN_MS: dict[Span, int] = {
+    Span.D1: 1 * _DAY_MS,
+    Span.D5: 5 * _DAY_MS,
+    Span.M1: 30 * _DAY_MS,
+    Span.M3: 90 * _DAY_MS,
+    Span.Y1: 365 * _DAY_MS,
+    Span.Y5: 5 * 365 * _DAY_MS,
+}
+
+
 # --------------------------------------------------------------------------- #
 # Canonical entities
 # --------------------------------------------------------------------------- #
@@ -105,6 +153,8 @@ class CandlesResponse(CamelModel):
     symbol: str
     source: str
     candles: list[Candle] = []
+    interval: Interval = Interval.H1
+    span: Span = Span.M1
 
 
 class QuoteResponse(CamelModel):
@@ -120,6 +170,8 @@ class CryptoResponse(CamelModel):
     source: str
     quote: Quote | None = None
     candles: list[Candle] = []
+    interval: Interval = Interval.H1
+    span: Span = Span.M1
 
 
 class PortfolioResponse(CamelModel):
