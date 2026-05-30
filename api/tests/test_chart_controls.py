@@ -1,5 +1,8 @@
 """Tests for chart span/interval controls: enums, maps, adapter mappings."""
 
+import pytest
+
+from app.adapters.mock import MockAdapter
 from app.models import (
     INTERVAL_MS,
     SPAN_MS,
@@ -46,11 +49,6 @@ def test_crypto_response_default_pair_is_coherent():
     assert resp.span == Span.M1
 
 
-import pytest
-
-from app.adapters.mock import MockAdapter
-
-
 @pytest.mark.asyncio
 async def test_mock_candle_count_and_step_follow_span_and_interval():
     a = MockAdapter()
@@ -74,3 +72,4 @@ async def test_mock_quote_still_works_after_signature_change():
     q = await a.get_quote("AAPL")
     assert q.symbol == "AAPL"
     assert q.last is not None
+    assert q.bid < q.last < q.ask
