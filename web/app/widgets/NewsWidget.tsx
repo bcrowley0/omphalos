@@ -64,6 +64,27 @@ function FeedBar({ active }: { active?: string }) {
   return (
     <div style={{ marginBottom: "1rem" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.6rem" }}>
+        {(() => {
+          const allActive = !active; // the default News tab (no feed) = aggregate of all sources
+          return (
+            <button
+              onClick={() => terminalStore.dispatch("news")}
+              title="All sources, newest first"
+              style={{
+                background: allActive ? "var(--panel)" : "transparent",
+                color: allActive ? "var(--accent)" : "var(--muted)",
+                border: "1px solid var(--border)",
+                borderRadius: 999,
+                padding: "0.2rem 0.7rem",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: "0.78rem",
+              }}
+            >
+              All
+            </button>
+          );
+        })()}
         {feeds.map((f) => {
           const isActive = (active ?? "").toUpperCase() === f.name.toUpperCase();
           return (
@@ -139,7 +160,7 @@ export default function NewsWidget({ feed }: { feed?: string }) {
   const { state, refresh } = useResource(load);
 
   return (
-    <WidgetFrame title={feed ? `News · ${feed}` : "News"} onRefresh={refresh} busy={state.kind === "loading"}>
+    <WidgetFrame title={feed ? `News · ${feed}` : "News · All"} onRefresh={refresh} busy={state.kind === "loading"}>
       <FeedBar active={feed} />
       <ResourceView state={state}>
         {(data) =>

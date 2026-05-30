@@ -35,6 +35,7 @@ _UA = "Mozilla/5.0 (Omphalos RSS reader)"
 # is `feeds.content.dowjones.io/public/rss/<NAME>`.
 _WSJ = "https://feeds.content.dowjones.io/public/rss"
 _FT = "https://www.ft.com"
+_BB = "https://feeds.bloomberg.com"
 _DEFAULT_FEEDS: dict[str, list[str]] = {
     "FT": [
         f"{_FT}/rss/home",
@@ -53,7 +54,17 @@ _DEFAULT_FEEDS: dict[str, list[str]] = {
         f"{_WSJ}/RSSOpinion",
         f"{_WSJ}/RSSPersonalFinance",
     ],
+    "BLOOMBERG": [
+        f"{_BB}/markets/news.rss",
+        f"{_BB}/technology/news.rss",
+        f"{_BB}/economics/news.rss",
+        f"{_BB}/politics/news.rss",
+        f"{_BB}/industries/news.rss",
+    ],
 }
+
+# Pseudo-source name that aggregates every configured source into one feed.
+_ALL = "ALL"
 
 _TAG_RE = re.compile(r"<[^>]+>")
 
@@ -124,39 +135,43 @@ class RssAdapter(Adapter):
             if url not in urls:
                 urls.append(url)
 
-    def _resolve(self, feed: str | None) -> tuple[str, list[str]]:
-        """Return (label, urls). `feed` may be a name, a raw URL, or None (default)."""
-        if not feed:
-            # default to the first configured source (FT)
-            name = next(iter(self._feeds))
-            return name, list(self._feeds[name])
+    def _targets(self, feed: str | None) -> tuple[str, list[tuple[str, str]]]:
+        """Return (cache_label, [(item_label, url), ...]) to fetch.
+
+        `feed` may be None / "all" (aggregate EVERY source, each item labelled by
+        its source name), a source name, or a raw URL. Each item's label becomes
+        its `feed` field so an aggregated view shows where each story came from.
+        """
+        if not feed or feed.upper() == _ALL:
+            with self._lock:
+                pairs = [(name, url) for name, urls in self._feeds.items() for url in urls]
+            return _ALL, pairs
         if feed.lower().startswith(("http://", "https://")):
-            return feed, [feed]  # raw URL; label is the URL
+            return feed, [(feed, feed)]
         with self._lock:
             urls = self._feeds.get(feed.upper())
         if urls is None:
             raise SourceUnavailable(f"Unknown feed '{feed}'. Known: {', '.join(self._feeds)}")
-        return feed.upper(), list(urls)
+        return feed.upper(), [(feed.upper(), url) for url in urls]
 
     async def get_news(self, feed: str | None = None) -> list[NewsItem]:
-        label, urls = self._resolve(feed)
+        cache_label, targets = self._targets(feed)
 
         async def fetch() -> list[NewsItem]:
-            async def one(url: str) -> list[NewsItem]:
+            async def one(label: str, url: str) -> list[NewsItem]:
                 try:
                     xml = await get_text(
                         url, source="rss", headers={"User-Agent": _UA}, follow_redirects=True
                     )
-                except Exception:  # noqa: BLE001 - skip a single bad section feed
+                except Exception:  # noqa: BLE001 - skip a single bad feed, keep the rest
                     return []
                 return parse_feed(xml, label)
 
-            results = await asyncio.gather(*(one(u) for u in urls))
+            results = await asyncio.gather(*(one(lbl, u) for lbl, u in targets))
             merged = dedupe_sort_news([it for sub in results for it in sub])
-            if not merged and urls:
-                raise SourceUnavailable(f"No items from {label}")
+            if not merged and targets:
+                raise SourceUnavailable(f"No items from {cache_label}")
             return merged[:_MAX_AGG]
 
-        # cache per source (label + its set of urls), so adding a feed busts it
-        key = f"rss:{label}:{','.join(sorted(urls))}"
+        key = f"rss:{cache_label}:{','.join(sorted(u for _, u in targets))}"
         return await cache.get_or_set(key, _FEED_TTL, fetch)

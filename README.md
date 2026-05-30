@@ -78,7 +78,7 @@ in frontend code or in git. Every external call is proxied through the backend.
 | Source | Used by | Auth | Without it |
 | --- | --- | --- | --- |
 | Kraken public | `crypto`, `chart <PAIR>` | none | works out of the box |
-| RSS (FT/WSJ/custom) | `news` | none | works out of the box |
+| RSS (FT/WSJ/Bloomberg/custom) | `news` | none | works out of the box |
 | FRED | `yield` | `FRED_API_KEY` | shows the **unauthenticated** state |
 | Kraken private | `port` balances | `KRAKEN_API_KEY`/`SECRET` | shows the **unauthenticated** state |
 | IBKR gateway | `port` positions, equity `quote`/`chart` | running CP Gateway | shows **gateway down** / **log in** |
@@ -120,7 +120,7 @@ opens or focuses a widget tab:
 | `crypto <PAIR>` | crypto ticker + chart, e.g. `crypto BTC/USD` |
 | `port` | portfolio: positions + balances |
 | `yield` | Treasury yield curve |
-| `news [feed]` | headlines (optional feed), linking out |
+| `news [feed]` | headlines, linking out; no feed = **All** (FT + WSJ + Bloomberg merged), or `news FT`/`news WSJ`/`news Bloomberg` |
 | `follow <name>` / `unfollow <name>` | follow/unfollow a person (e.g. `follow Andrej Karpathy`) |
 | `following` | roster + aggregated feed of followed people's public items |
 | `cal` | economic calendar (stubbed "not implemented") |
