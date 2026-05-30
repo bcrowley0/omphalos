@@ -28,6 +28,12 @@ export function commandToTab(cmd: Command): Tab | null {
       return { id: "cal", widget: "cal", title: "Calendar" };
     case "help":
       return { id: "help", widget: "help", title: "Help" };
+    case "follow":
+      return { id: `person:${cmd.name}`, widget: "person", title: cmd.name, person: cmd.name };
+    case "unfollow":
+      return { id: "following", widget: "following", title: "Following" };
+    case "following":
+      return { id: "following", widget: "following", title: "Following" };
     case "error":
       return null;
   }

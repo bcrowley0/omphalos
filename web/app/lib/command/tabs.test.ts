@@ -31,4 +31,15 @@ describe("commandToTab", () => {
   it("returns null for an error command (no tab opens)", () => {
     expect(tabFor("frobnicate")).toBeNull();
   });
+
+  it("maps follow to a per-person tab and following to the roster", () => {
+    expect(tabFor("follow Andrej Karpathy")).toMatchObject({
+      id: "person:Andrej Karpathy", widget: "person", person: "Andrej Karpathy",
+    });
+    expect(tabFor("following")).toMatchObject({ id: "following", widget: "following" });
+  });
+
+  it("maps unfollow to the following roster tab", () => {
+    expect(tabFor("unfollow Andrej Karpathy")).toMatchObject({ id: "following", widget: "following" });
+  });
 });

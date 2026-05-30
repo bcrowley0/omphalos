@@ -55,4 +55,17 @@ describe("parseCommand", () => {
   it("returns an error when `crypto` is missing its pair", () => {
     expect(parseCommand("crypto").kind).toBe("error");
   });
+
+  it("parses `follow <multi-word name>` keeping the full name", () => {
+    expect(parseCommand("follow Paul Tudor Jones")).toEqual({ kind: "follow", name: "Paul Tudor Jones" });
+  });
+
+  it("parses `unfollow <name>` and `following`", () => {
+    expect(parseCommand("unfollow Andrej Karpathy")).toEqual({ kind: "unfollow", name: "Andrej Karpathy" });
+    expect(parseCommand("following")).toEqual({ kind: "following" });
+  });
+
+  it("errors when follow has no name", () => {
+    expect(parseCommand("follow").kind).toBe("error");
+  });
 });
