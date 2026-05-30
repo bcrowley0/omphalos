@@ -21,6 +21,7 @@ from .adapters.base import (
     Unauthenticated,
 )
 from .deps import get_registry
+from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
 from .models import (
     AddFeedRequest,
@@ -28,9 +29,13 @@ from .models import (
     CalendarResponse,
     CandlesResponse,
     CryptoResponse,
+    FeedError,
     FeedInfo,
     FeedListResponse,
+    FollowItem,
     NewsResponse,
+    PeopleFeedRequest,
+    PeopleFeedResponse,
     PortfolioResponse,
     Position,
     Quote,
@@ -230,6 +235,33 @@ async def add_feed(req: AddFeedRequest) -> FeedListResponse:
     rss.add_feed(req.name, req.url)
     feeds = [FeedInfo(name=n, url=u) for n, u in rss.list_feeds().items()]
     return FeedListResponse(status=SourceStatus.OK, feeds=feeds)
+
+
+# --------------------------------------------------------------------------- #
+# people feed — follow public figures across news, YouTube, blogs
+# --------------------------------------------------------------------------- #
+@router.post("/people/feed", response_model=PeopleFeedResponse, tags=["people"])
+async def people_feed(req: PeopleFeedRequest) -> PeopleFeedResponse:
+    adapter = _adapter("people")
+    if not isinstance(adapter, PeopleAdapter):
+        return PeopleFeedResponse(status=SourceStatus.SOURCE_DOWN, message="people integration not available.")
+    items: list[FollowItem] = []
+    errors: list[FeedError] = []
+    for p in req.people:
+        try:
+            person_items = await adapter.get_person_feed(p.name, p.feeds)
+            items.extend(person_items[: req.limit_per_person])
+        except Exception as exc:  # noqa: BLE001 - one person failing must not kill the rest
+            _, msg = _status_from_exc(exc)
+            errors.append(FeedError(person=p.name, message=msg))
+    items = merge_people_items(items)
+    if items:
+        status = SourceStatus.OK
+    elif errors:
+        status = SourceStatus.SOURCE_DOWN
+    else:
+        status = SourceStatus.EMPTY
+    return PeopleFeedResponse(status=status, items=items, errors=errors)
 
 
 # --------------------------------------------------------------------------- #

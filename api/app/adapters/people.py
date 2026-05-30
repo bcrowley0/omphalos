@@ -61,3 +61,37 @@ def merge_dedupe_sort(items: list[FollowItem]) -> list[FollowItem]:
         if it.url and it.url not in by_url:
             by_url[it.url] = it
     return sorted(by_url.values(), key=lambda i: (i.published_ts is not None, i.published_ts or 0), reverse=True)
+
+
+class PeopleAdapter(Adapter):
+    name = "people"
+
+    def __init__(self) -> None:
+        self._client: Any = None  # tests may inject an httpx.AsyncClient (MockTransport)
+
+    async def _fetch(self, url: str) -> str:
+        return await get_text(url, source="people", client=self._client, headers={"User-Agent": _UA}, follow_redirects=True)
+
+    async def get_person_feed(self, name: str, feeds: list[str] | None = None) -> list[FollowItem]:
+        feeds = feeds or []
+        sources: list[tuple[str, str]] = [(google_news_search_url(name), _GOOGLE_NEWS)]
+        for f in feeds:
+            label = "YouTube" if "youtube" in f.lower() else urllib.parse.urlparse(f).netloc or f
+            sources.append((f, label))
+
+        async def fetch_all() -> list[FollowItem]:
+            async def one(url: str, label: str) -> list[FollowItem]:
+                try:
+                    xml = await self._fetch(url)
+                except Exception:  # noqa: BLE001 - skip a single bad feed, keep the rest
+                    return []
+                return to_follow_items(parse_feed(xml, label), name, label)
+
+            results = await asyncio.gather(*(one(u, l) for u, l in sources))
+            flat = [it for sub in results for it in sub]
+            if not flat:
+                raise SourceUnavailable(f"No items found for {name}")
+            return merge_dedupe_sort(flat)
+
+        key = f"people:{name}:{','.join(sorted(feeds))}"
+        return await cache.get_or_set(key, _PERSON_TTL, fetch_all)

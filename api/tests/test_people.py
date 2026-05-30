@@ -40,3 +40,33 @@ def test_merge_dedupe_sort_dedupes_by_url_and_sorts_desc():
     assert urls[0] == "b"          # newest first
     assert urls.count("a") == 1    # deduped
     assert urls[-1] == "c"         # undated sinks to the end
+
+
+import httpx
+import pytest
+from app.adapters.people import PeopleAdapter
+
+_GNEWS_XML = """<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>PTJ on macro</title><link>https://news.google.com/rss/articles/a1</link>
+<description>teaser</description><pubDate>Wed, 05 Jun 2024 12:00:00 GMT</pubDate></item>
+</channel></rss>"""
+
+_YT_XML = """<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>My talk</title><link>https://www.youtube.com/watch?v=abc</link>
+<description>v</description><pubDate>Thu, 06 Jun 2024 12:00:00 GMT</pubDate></item>
+</channel></rss>"""
+
+
+async def test_get_person_feed_merges_news_and_custom_feed():
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "news.google.com" in str(req.url):
+            return httpx.Response(200, text=_GNEWS_XML)
+        return httpx.Response(200, text=_YT_XML)
+
+    adapter = PeopleAdapter()
+    adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    items = await adapter.get_person_feed("Paul Tudor Jones", ["https://youtube.com/feeds/x"])
+    kinds = {i.kind for i in items}
+    assert kinds == {"news", "video"}
+    assert all(i.person == "Paul Tudor Jones" for i in items)
+    assert items[0].published_ts >= (items[1].published_ts or 0)  # newest first

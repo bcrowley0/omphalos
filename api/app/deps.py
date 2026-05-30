@@ -14,6 +14,7 @@ from .adapters.fred import FredAdapter
 from .adapters.ibkr import IbkrAdapter
 from .adapters.kraken import KrakenAdapter
 from .adapters.mock import MockAdapter
+from .adapters.people import PeopleAdapter
 from .adapters.registry import registry
 from .adapters.rss import RssAdapter
 
@@ -22,6 +23,7 @@ registry.register(KrakenAdapter())
 registry.register(FredAdapter())
 registry.register(RssAdapter())
 registry.register(IbkrAdapter())
+registry.register(PeopleAdapter())
 
 
 def get_registry():
