@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.adapters.kraken import kraken_ohlc_params
 from app.adapters.mock import MockAdapter
 from app.models import (
     INTERVAL_MS,
@@ -73,3 +74,20 @@ async def test_mock_quote_still_works_after_signature_change():
     assert q.symbol == "AAPL"
     assert q.last is not None
     assert q.bid < q.last < q.ask
+
+
+def test_kraken_ohlc_params_minutes_and_bar_aligned_since():
+    now_ms = 1_700_000_000_000
+    minutes, since = kraken_ohlc_params(Interval.H1, Span.M1, now_ms)
+    assert minutes == 60
+    raw = (now_ms - SPAN_MS[Span.M1]) // 1000
+    bar_s = 60 * 60
+    assert since == raw - (raw % bar_s)  # aligned to the bar boundary
+
+
+def test_kraken_ohlc_params_one_minute_bar():
+    now_ms = 1_700_000_000_000
+    minutes, since = kraken_ohlc_params(Interval.M1, Span.D1, now_ms)
+    assert minutes == 1
+    raw = (now_ms - SPAN_MS[Span.D1]) // 1000
+    assert since == raw - (raw % 60)

@@ -18,7 +18,7 @@ from typing import Any
 from ..cache import cache
 from ..config import get_settings
 from ..http import get_json, post_form
-from ..models import Balance, Candle, Quote
+from ..models import Balance, Candle, Interval, INTERVAL_MS, Quote, Span, SPAN_MS
 from .base import Adapter, RateLimited, SourceUnavailable, Unauthenticated
 
 _API_ROOT = "https://api.kraken.com"
@@ -28,9 +28,6 @@ _OHLC_TTL = 30.0
 
 # Kraken uses non-standard asset codes for a few bases (e.g. BTC -> XBT).
 _BASE_ALIASES = {"BTC": "XBT", "DOGE": "XDG"}
-
-# CLAUDE.md interval label -> Kraken OHLC interval in minutes.
-_INTERVAL_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "1h": 60, "4h": 240, "1d": 1440, "1w": 10080}
 
 
 def sign_request(path: str, data: dict[str, Any], b64_secret: str) -> str:
@@ -111,6 +108,20 @@ def krakenize_pair(pair: str) -> str:
     return f"{base}{quote}"
 
 
+def kraken_ohlc_params(interval: Interval, span: Span, now_ms: int) -> tuple[int, int]:
+    """Map canonical (interval, span) to Kraken OHLC params.
+
+    Returns (interval_minutes, since_seconds). `since` is epoch SECONDS (Kraken's
+    unit) aligned down to the bar boundary so the cache key stays stable within a
+    bar (avoids a fresh fetch every call). Pure/testable.
+    """
+    minutes = INTERVAL_MS[interval] // 60_000
+    since_s = (now_ms - SPAN_MS[span]) // 1000
+    bar_s = minutes * 60
+    since_s -= since_s % bar_s
+    return minutes, since_s
+
+
 def _check_error(payload: dict[str, Any], source: str) -> None:
     errors = payload.get("error") or []
     if not errors:
@@ -187,16 +198,20 @@ class KrakenAdapter(Adapter):
         payload = await cache.get_or_set(f"kraken:ticker:{kp}", _TICKER_TTL, fetch)
         return parse_ticker(payload, symbol.upper())
 
-    async def get_candles(self, symbol: str, interval: str = "1d") -> list[Candle]:
+    async def get_candles(
+        self, symbol: str, interval: Interval = Interval.D1, span: Span = Span.M1
+    ) -> list[Candle]:
         kp = krakenize_pair(symbol)
-        minutes = _INTERVAL_MINUTES.get(interval, 1440)
+        minutes, since = kraken_ohlc_params(interval, span, int(time.time() * 1000))
 
         async def fetch() -> dict[str, Any]:
             return await get_json(
-                f"{_PUBLIC_BASE}/OHLC", source="kraken", params={"pair": kp, "interval": minutes}
+                f"{_PUBLIC_BASE}/OHLC",
+                source="kraken",
+                params={"pair": kp, "interval": minutes, "since": since},
             )
 
-        payload = await cache.get_or_set(f"kraken:ohlc:{kp}:{minutes}", _OHLC_TTL, fetch)
+        payload = await cache.get_or_set(f"kraken:ohlc:{kp}:{minutes}:{since}", _OHLC_TTL, fetch)
         return parse_ohlc(payload)
 
     # -- private (signed) -------------------------------------------------- #
