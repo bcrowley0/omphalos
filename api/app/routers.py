@@ -127,15 +127,18 @@ async def portfolio() -> PortfolioResponse:
     positions: list[Position] = []
     balances: list[Balance] = []
     messages: list[str] = []
+    sub_statuses: list[SourceStatus] = []
 
     ibkr = _adapter("ibkr")
     if ibkr is None:
-        messages.append("IBKR not connected.")
+        sub_statuses.append(SourceStatus.SOURCE_DOWN)
+        messages.append("positions: IBKR not connected.")
     else:
         try:
             positions = await ibkr.get_positions()
         except Exception as exc:  # noqa: BLE001
-            _, msg = _status_from_exc(exc)
+            st, msg = _status_from_exc(exc)
+            sub_statuses.append(st)
             messages.append(f"positions: {msg}")
 
     kraken = _adapter("kraken")
@@ -143,12 +146,19 @@ async def portfolio() -> PortfolioResponse:
         try:
             balances = await kraken.get_balances()
         except Exception as exc:  # noqa: BLE001
-            _, msg = _status_from_exc(exc)
+            st, msg = _status_from_exc(exc)
+            sub_statuses.append(st)
             messages.append(f"balances: {msg}")
 
+    # If either source returned rows, the portfolio is usable -> OK (partial).
+    # Otherwise pick the most actionable sub-status (auth > rate > down).
     if positions or balances:
         status = SourceStatus.OK
-    elif messages:
+    elif SourceStatus.UNAUTHENTICATED in sub_statuses:
+        status = SourceStatus.UNAUTHENTICATED
+    elif SourceStatus.RATE_LIMITED in sub_statuses:
+        status = SourceStatus.RATE_LIMITED
+    elif sub_statuses:
         status = SourceStatus.SOURCE_DOWN
     else:
         status = SourceStatus.EMPTY

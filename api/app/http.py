@@ -69,3 +69,16 @@ async def get_text(
     resp = await _request("GET", url, source=source, client=client, **kwargs)
     resp.raise_for_status()
     return resp.text
+
+
+async def post_form(
+    url: str,
+    *,
+    source: str,
+    data: dict[str, Any],
+    headers: dict[str, str] | None = None,
+    client: httpx.AsyncClient | None = None,
+) -> Any:
+    resp = await _request("POST", url, source=source, client=client, data=data, headers=headers or {})
+    resp.raise_for_status()
+    return resp.json()
