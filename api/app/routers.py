@@ -33,6 +33,7 @@ from .models import (
     FeedInfo,
     FeedListResponse,
     FollowItem,
+    Interval,
     NewsResponse,
     PeopleFeedRequest,
     PeopleFeedResponse,
@@ -40,6 +41,7 @@ from .models import (
     Position,
     Quote,
     QuoteResponse,
+    Span,
     SourceStatus,
     YieldCurveResponse,
 )
@@ -72,7 +74,9 @@ def _status_from_exc(exc: Exception) -> tuple[SourceStatus, str]:
 # chart / quote (equities → IBKR; plain tickers only)
 # --------------------------------------------------------------------------- #
 @router.get("/chart/{symbol}", response_model=CandlesResponse, tags=["market"])
-async def chart(symbol: str, interval: str = "1d") -> CandlesResponse:
+async def chart(
+    symbol: str, interval: Interval = Interval.H1, span: Span = Span.M1
+) -> CandlesResponse:
     symbol = symbol.upper()
     source = source_for_symbol(symbol)
     adapter = _adapter(source)
@@ -80,15 +84,22 @@ async def chart(symbol: str, interval: str = "1d") -> CandlesResponse:
         return CandlesResponse(
             status=SourceStatus.SOURCE_DOWN,
             message=f"{source} integration not available.",
-            symbol=symbol, source=source,
+            symbol=symbol,
+            source=source,
+            interval=interval,
+            span=span,
         )
     try:
-        candles = await adapter.get_candles(symbol, interval=interval)
+        candles = await adapter.get_candles(symbol, interval=interval, span=span)
     except Exception as exc:  # noqa: BLE001 - mapped to a UI state, never crashes
         status, msg = _status_from_exc(exc)
-        return CandlesResponse(status=status, message=msg, symbol=symbol, source=source)
+        return CandlesResponse(
+            status=status, message=msg, symbol=symbol, source=source, interval=interval, span=span
+        )
     status = SourceStatus.OK if candles else SourceStatus.EMPTY
-    return CandlesResponse(status=status, symbol=symbol, source=source, candles=candles)
+    return CandlesResponse(
+        status=status, symbol=symbol, source=source, candles=candles, interval=interval, span=span
+    )
 
 
 @router.get("/quote/{symbol}", response_model=QuoteResponse, tags=["market"])
@@ -110,22 +121,34 @@ async def quote(symbol: str) -> QuoteResponse:
 # crypto (ticker + chart for a pair) → Kraken
 # --------------------------------------------------------------------------- #
 @router.get("/crypto/{base}/{quote_ccy}", response_model=CryptoResponse, tags=["market"])
-async def crypto(base: str, quote_ccy: str) -> CryptoResponse:
+async def crypto(
+    base: str, quote_ccy: str, interval: Interval = Interval.H1, span: Span = Span.M1
+) -> CryptoResponse:
     pair = f"{base.upper()}/{quote_ccy.upper()}"
     source = "kraken"
     adapter = _adapter(source)
     if adapter is None:
         return CryptoResponse(
-            status=SourceStatus.SOURCE_DOWN, message="kraken integration not available.",
-            pair=pair, source=source,
+            status=SourceStatus.SOURCE_DOWN,
+            message="kraken integration not available.",
+            pair=pair,
+            source=source,
+            interval=interval,
+            span=span,
         )
     try:
-        q, candles = await asyncio.gather(adapter.get_quote(pair), adapter.get_candles(pair))
+        q, candles = await asyncio.gather(
+            adapter.get_quote(pair), adapter.get_candles(pair, interval=interval, span=span)
+        )
     except Exception as exc:  # noqa: BLE001
         status, msg = _status_from_exc(exc)
-        return CryptoResponse(status=status, message=msg, pair=pair, source=source)
+        return CryptoResponse(
+            status=status, message=msg, pair=pair, source=source, interval=interval, span=span
+        )
     status = SourceStatus.OK if candles else SourceStatus.EMPTY
-    return CryptoResponse(status=status, pair=pair, source=source, quote=q, candles=candles)
+    return CryptoResponse(
+        status=status, pair=pair, source=source, quote=q, candles=candles, interval=interval, span=span
+    )
 
 
 # --------------------------------------------------------------------------- #
