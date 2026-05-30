@@ -9,6 +9,9 @@ const COMMANDS: [string, string][] = [
   ["yield", "US Treasury yield curve (FRED)"],
   ["crypto <PAIR>", "Crypto ticker + chart, e.g. crypto BTC/USD"],
   ["news [feed]", "Headlines (optional feed name)"],
+  ["follow <name>", "Follow a person; opens their feed (news, interviews, talks)"],
+  ["unfollow <name>", "Stop following a person"],
+  ["following", "Manage who you follow + see the aggregated feed"],
   ["cal", "Economic calendar (not implemented yet)"],
   ["help", "This command list"],
 ];
