@@ -177,6 +177,7 @@ class FollowItem(CamelModel):
     kind: str  # "news" | "video" | "blog" | "podcast"
     publisher: str | None = None  # the outlet (e.g. "Reuters"); None if unknown
     primary: bool = False  # first-party OR wire-grade/official source (vs rehash)
+    relevant: bool = False  # the item is about the person (name in title / first-party)
 
 
 class PersonRef(CamelModel):

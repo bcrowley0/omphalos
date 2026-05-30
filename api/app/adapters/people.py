@@ -9,6 +9,7 @@ name (free, no key, headlines link out) plus optional first-party feeds.
 from __future__ import annotations
 
 import asyncio
+import re
 import urllib.parse
 from typing import Any
 
@@ -75,6 +76,55 @@ def is_primary_publisher(publisher: str | None) -> bool:
     return any(name in p for name in _PRIMARY_PUBLISHERS)
 
 
+def title_mentions_person(title: str, person: str) -> bool:
+    """True if the headline is plausibly ABOUT the person: contains their full
+    name or their surname (last name token). Drops Nvidia/industry stories that
+    merely mention them in the body. Pure/testable."""
+    t = title.lower()
+    name = person.lower().strip()
+    if name and name in t:
+        return True
+    surname = name.split()[-1] if name.split() else ""
+    return len(surname) >= 3 and surname in t
+
+
+_STOPWORDS = {
+    "the", "a", "an", "to", "of", "at", "in", "on", "for", "and", "or", "is", "are",
+    "be", "with", "by", "as", "his", "her", "its", "into", "from", "amid", "over",
+}
+
+
+def _significant_tokens(title: str) -> set[str]:
+    words = re.findall(r"[a-z0-9]+", title.lower())
+    return {w for w in words if len(w) > 2 and w not in _STOPWORDS}
+
+
+def dedupe_stories(items: list[FollowItem]) -> list[FollowItem]:
+    """Collapse near-duplicate headlines (the same story across outlets) into a
+    single item. Representative preference: primary first, then earliest (closest
+    to the original). Similarity = token-set Jaccard >= 0.5 or containment >= 0.8.
+    Returns survivors newest-first. Pure/testable."""
+    order = sorted(range(len(items)), key=lambda i: (not items[i].primary, items[i].published_ts or 0))
+    kept: list[FollowItem] = []
+    kept_tokens: list[set[str]] = []
+    for idx in order:
+        toks = _significant_tokens(items[idx].title)
+        is_dup = False
+        for kt in kept_tokens:
+            if not toks or not kt:
+                continue
+            inter = len(toks & kt)
+            union = len(toks | kt)
+            smaller = min(len(toks), len(kt))
+            if (union and inter / union >= 0.5) or (smaller and inter / smaller >= 0.8):
+                is_dup = True
+                break
+        if not is_dup:
+            kept.append(items[idx])
+            kept_tokens.append(toks)
+    return sorted(kept, key=lambda i: (i.published_ts is not None, i.published_ts or 0), reverse=True)
+
+
 def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> list[FollowItem]:
     """Convert canonical NewsItems -> FollowItems, tagging person/kind/source and
     classifying primary vs secondary. Google News items derive their publisher
@@ -84,10 +134,11 @@ def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> lis
     items: list[FollowItem] = []
     for n in news:
         if first_party:
-            title, publisher, primary = n.title, source_label, True
+            title, publisher, primary, relevant = n.title, source_label, True, True
         else:
             title, publisher = extract_publisher(n.title)
             primary = is_primary_publisher(publisher)
+            relevant = title_mentions_person(title, person)
         items.append(
             FollowItem(
                 person=person,
@@ -99,6 +150,7 @@ def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> lis
                 kind=derive_kind(n.url),
                 publisher=publisher,
                 primary=primary,
+                relevant=relevant,
             )
         )
     return items
@@ -141,7 +193,8 @@ class PeopleAdapter(Adapter):
             flat = [it for sub in results for it in sub]
             if not flat:
                 raise SourceUnavailable(f"No items found for {name}")
-            return merge_dedupe_sort(flat)
+            # dedupe exact URLs, then collapse the same story across outlets
+            return dedupe_stories(merge_dedupe_sort(flat))
 
         key = f"people:{name}:{','.join(sorted(feeds))}"
         return await cache.get_or_set(key, _PERSON_TTL, fetch_all)

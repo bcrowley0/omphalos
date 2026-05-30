@@ -2,14 +2,55 @@ import httpx
 
 from app.adapters.people import (
     PeopleAdapter,
+    dedupe_stories,
     derive_kind,
     extract_publisher,
     google_news_search_url,
     is_primary_publisher,
     merge_dedupe_sort,
+    title_mentions_person,
     to_follow_items,
 )
-from app.models import NewsItem
+from app.models import FollowItem, NewsItem
+
+
+def test_title_mentions_person_full_name_or_surname():
+    assert title_mentions_person("Nvidia chief Jensen Huang to join board", "Jensen Huang")
+    assert title_mentions_person("What Huang said at Computex", "Jensen Huang")  # surname only
+    assert not title_mentions_person("Key themes to watch at Asia's biggest AI show", "Jensen Huang")
+
+
+def test_to_follow_items_sets_relevant_from_title_for_google_news():
+    news = [
+        NewsItem(title="Jensen Huang joins board - Reuters", summary="",
+                 url="https://news.google.com/rss/articles/1", published_ts=2, feed="Google News"),
+        NewsItem(title="Nvidia to spend $150B in Taiwan - Reuters", summary="",
+                 url="https://news.google.com/rss/articles/2", published_ts=1, feed="Google News"),
+    ]
+    items = to_follow_items(news, "Jensen Huang", "Google News")
+    assert items[0].relevant is True
+    assert items[1].relevant is False
+
+
+def test_to_follow_items_first_party_always_relevant():
+    news = [NewsItem(title="some talk", summary="", url="https://www.youtube.com/watch?v=1",
+                     published_ts=1, feed="YouTube")]
+    assert to_follow_items(news, "Andrej Karpathy", "YouTube")[0].relevant is True
+
+
+def test_dedupe_stories_collapses_near_duplicate_titles():
+    def mk(title, pub, ts, url):
+        return FollowItem(person="P", title=title, summary="", url=url, published_ts=ts,
+                          source="Google News", kind="news", publisher=pub, primary=True, relevant=True)
+
+    a = mk("Nvidia chief Jensen Huang to join board of Beijing's Tsinghua University", "Reuters", 100, "u1")
+    b = mk("Nvidia chief Jensen Huang to join board at prestigious Beijing university", "Financial Times", 90, "u2")
+    c = mk("Nvidia to spend $150 billion a year in Taiwan", "Reuters", 80, "u3")
+    out = dedupe_stories([a, b, c])
+    titles = [i.title for i in out]
+    assert len(out) == 2  # the board story (Reuters + FT) collapses to one
+    assert sum(1 for t in titles if "board" in t.lower()) == 1
+    assert any("Taiwan" in t for t in titles)
 
 
 def test_extract_publisher_splits_google_news_suffix():

@@ -14,7 +14,7 @@ export default function PersonFeedWidget({ person }: { person: string }) {
   const key = `${entry.name}:${entry.feeds.join("|")}`;
   const seenAtMount = useMemo(() => entry.lastSeenTs, [/* mount only */]); // eslint-disable-line react-hooks/exhaustive-deps
   const [feedUrl, setFeedUrl] = useState("");
-  const [primaryOnly, setPrimaryOnly] = useState(true);
+  const [curated, setCurated] = useState(true);
 
   const load = useCallback(async () => {
     const r = await loadPeopleFeed([entry]);
@@ -44,26 +44,26 @@ export default function PersonFeedWidget({ person }: { person: string }) {
       )}
       <ResourceView state={state}>
         {(data) => {
-          const items = primaryOnly ? data.items.filter((i) => i.primary) : data.items;
-          const hiddenSecondary = data.items.length - data.items.filter((i) => i.primary).length;
+          const items = curated ? data.items.filter((i) => i.primary && i.relevant) : data.items;
+          const hidden = data.items.length - data.items.filter((i) => i.primary && i.relevant).length;
           return (
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.8rem", fontSize: "0.78rem", color: "var(--muted)" }}>
-                <button onClick={() => setPrimaryOnly((v) => !v)} title="Primary = first-party + wire-grade/official sources"
-                  style={{ background: primaryOnly ? "var(--panel)" : "transparent", color: primaryOnly ? "var(--accent)" : "var(--muted)", border: "1px solid var(--border)", borderRadius: 999, padding: "0.2rem 0.7rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem" }}>
-                  {primaryOnly ? "✓ primary sources only" : "primary sources only"}
+                <button onClick={() => setCurated((v) => !v)} title="Primary/official sources whose headline is about this person; duplicate stories collapsed"
+                  style={{ background: curated ? "var(--panel)" : "transparent", color: curated ? "var(--accent)" : "var(--muted)", border: "1px solid var(--border)", borderRadius: 999, padding: "0.2rem 0.7rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem" }}>
+                  {curated ? "✓ primary & on-topic" : "primary & on-topic"}
                 </button>
-                {primaryOnly && hiddenSecondary > 0 && (
-                  <button onClick={() => setPrimaryOnly(false)}
+                {curated && hidden > 0 && (
+                  <button onClick={() => setCurated(false)}
                     style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem", textDecoration: "underline" }}>
-                    show all ({hiddenSecondary} more)
+                    show all ({hidden} more)
                   </button>
                 )}
               </div>
               {items.length === 0 ? (
                 <p style={{ color: "var(--muted)" }}>
-                  {primaryOnly && data.items.length > 0
-                    ? `No primary sources for ${person} right now — try “show all”.`
+                  {curated && data.items.length > 0
+                    ? `Nothing on-topic from primary sources for ${person} — try “show all”.`
                     : `No recent items for ${person}.`}
                 </p>
               ) : (

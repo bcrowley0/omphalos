@@ -301,6 +301,11 @@ export interface components {
              * @default false
              */
             primary: boolean;
+            /**
+             * Relevant
+             * @default false
+             */
+            relevant: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

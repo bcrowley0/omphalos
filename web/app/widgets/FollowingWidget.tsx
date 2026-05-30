@@ -20,7 +20,7 @@ export default function FollowingWidget() {
   );
   const [filter, setFilter] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
-  const [primaryOnly, setPrimaryOnly] = useState(true);
+  const [curated, setCurated] = useState(true);
 
   const load = useCallback(async () => {
     const r = await loadPeopleFeed(following);
@@ -61,19 +61,19 @@ export default function FollowingWidget() {
       <ResourceView state={state}>
         {(data) => {
           const scoped: FollowItem[] = filter ? data.items.filter((i) => i.person === filter) : data.items;
-          const items = primaryOnly ? scoped.filter((i) => i.primary) : scoped;
-          const hiddenSecondary = scoped.length - scoped.filter((i) => i.primary).length;
+          const items = curated ? scoped.filter((i) => i.primary && i.relevant) : scoped;
+          const hidden = scoped.length - scoped.filter((i) => i.primary && i.relevant).length;
           return (
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.8rem", fontSize: "0.78rem", color: "var(--muted)" }}>
-                <button onClick={() => setPrimaryOnly((v) => !v)} title="Primary = first-party + wire-grade/official sources"
-                  style={{ background: primaryOnly ? "var(--panel)" : "transparent", color: primaryOnly ? "var(--accent)" : "var(--muted)", border: "1px solid var(--border)", borderRadius: 999, padding: "0.2rem 0.7rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem" }}>
-                  {primaryOnly ? "✓ primary sources only" : "primary sources only"}
+                <button onClick={() => setCurated((v) => !v)} title="Primary/official sources whose headline is about this person; duplicate stories collapsed"
+                  style={{ background: curated ? "var(--panel)" : "transparent", color: curated ? "var(--accent)" : "var(--muted)", border: "1px solid var(--border)", borderRadius: 999, padding: "0.2rem 0.7rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem" }}>
+                  {curated ? "✓ primary & on-topic" : "primary & on-topic"}
                 </button>
-                {primaryOnly && hiddenSecondary > 0 && (
-                  <button onClick={() => setPrimaryOnly(false)}
+                {curated && hidden > 0 && (
+                  <button onClick={() => setCurated(false)}
                     style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem", textDecoration: "underline" }}>
-                    show all ({hiddenSecondary} more)
+                    show all ({hidden} more)
                   </button>
                 )}
               </div>
@@ -84,8 +84,8 @@ export default function FollowingWidget() {
               )}
               {items.length === 0 ? (
                 <p style={{ color: "var(--muted)" }}>
-                  {primaryOnly && scoped.length > 0
-                    ? "No primary sources right now — try “show all”."
+                  {curated && scoped.length > 0
+                    ? "Nothing on-topic from primary sources right now — try “show all”."
                     : "No recent items."}
                 </p>
               ) : (
