@@ -86,12 +86,23 @@ class FredAdapter(Adapter):
         api_key = self._api_key()  # raises Unauthenticated if missing
 
         async def fetch_all() -> list[YieldPoint]:
-            tasks = [self._fetch_series(sid, api_key) for sid, _, _ in _TENORS]
-            payloads = await asyncio.gather(*tasks, return_exceptions=True)
+            # Fetch series SEQUENTIALLY: FRED throttles concurrent bursts (an
+            # 11-way parallel fan-out returns mostly HTTP 429). Sequential awaits
+            # naturally space the requests under the rate limit; the whole curve
+            # is cached for _CURVE_TTL so this runs at most once per minute.
             points: list[YieldPoint] = []
-            for (sid, label, years), payload in zip(_TENORS, payloads):
-                if isinstance(payload, Exception):
-                    continue  # skip a single failed series, keep the rest
+            for i, (sid, label, years) in enumerate(_TENORS):
+                if i:
+                    await asyncio.sleep(0.35)  # stagger under FRED's burst limit
+                payload = None
+                for attempt in range(2):  # one retry on a transient throttle
+                    try:
+                        payload = await self._fetch_series(sid, api_key)
+                        break
+                    except Exception:  # noqa: BLE001 - skip after a retry; keep the rest
+                        await asyncio.sleep(0.6)
+                if payload is None:
+                    continue
                 obs = latest_valid_observation(payload)
                 if obs is None:
                     continue
