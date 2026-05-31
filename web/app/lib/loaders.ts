@@ -2,6 +2,7 @@ import { api } from "./api/client";
 import type { Schemas } from "./api/client";
 import { routeSymbol } from "./command/router";
 import type { Person } from "./command/types";
+import type { Interval, Span } from "./chart/range";
 
 // Thin wrappers over the typed client. Each returns the canonical response
 // envelope (or throws on a transport/HTTP failure, which useResource maps to
@@ -18,8 +19,14 @@ export async function loadHealth(): Promise<Schemas["HealthResponse"]> {
   return unwrap(data, error);
 }
 
-export async function loadChart(symbol: string): Promise<Schemas["CandlesResponse"]> {
-  const { data, error } = await api.GET("/chart/{symbol}", { params: { path: { symbol } } });
+export async function loadChart(
+  symbol: string,
+  interval: Interval = "1d",
+  span: Span = "1M",
+): Promise<Schemas["CandlesResponse"]> {
+  const { data, error } = await api.GET("/chart/{symbol}", {
+    params: { path: { symbol }, query: { interval, span } },
+  });
   return unwrap(data, error);
 }
 
@@ -28,10 +35,14 @@ export async function loadQuote(symbol: string): Promise<Schemas["QuoteResponse"
   return unwrap(data, error);
 }
 
-export async function loadCrypto(pair: string): Promise<Schemas["CryptoResponse"]> {
+export async function loadCrypto(
+  pair: string,
+  interval: Interval = "1d",
+  span: Span = "1M",
+): Promise<Schemas["CryptoResponse"]> {
   const [base, quoteCcy] = pair.split("/");
   const { data, error } = await api.GET("/crypto/{base}/{quote_ccy}", {
-    params: { path: { base, quote_ccy: quoteCcy } },
+    params: { path: { base, quote_ccy: quoteCcy }, query: { interval, span } },
   });
   return unwrap(data, error);
 }
@@ -84,12 +95,16 @@ export type ChartData = {
   candles: Schemas["Candle"][];
 };
 
-export async function loadChartData(symbol: string): Promise<ChartData> {
+export async function loadChartData(
+  symbol: string,
+  interval: Interval = "1d",
+  span: Span = "1M",
+): Promise<ChartData> {
   if (routeSymbol(symbol) === "kraken") {
-    const r = await loadCrypto(symbol);
+    const r = await loadCrypto(symbol, interval, span);
     return { status: r.status, message: r.message, source: r.source, candles: r.candles };
   }
-  const r = await loadChart(symbol);
+  const r = await loadChart(symbol, interval, span);
   return { status: r.status, message: r.message, source: r.source, candles: r.candles };
 }
 

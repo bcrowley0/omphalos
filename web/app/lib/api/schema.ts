@@ -256,6 +256,10 @@ export interface components {
              * @default []
              */
             candles: components["schemas"]["Candle"][];
+            /** @default 1h */
+            interval: components["schemas"]["Interval"];
+            /** @default 1M */
+            span: components["schemas"]["Span"];
         };
         /** CryptoResponse */
         CryptoResponse: {
@@ -272,6 +276,10 @@ export interface components {
              * @default []
              */
             candles: components["schemas"]["Candle"][];
+            /** @default 1h */
+            interval: components["schemas"]["Interval"];
+            /** @default 1M */
+            span: components["schemas"]["Span"];
         };
         /** FeedError */
         FeedError: {
@@ -348,6 +356,12 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * Interval
+         * @description Candle size (bar granularity).
+         * @enum {string}
+         */
+        Interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w";
         /** NewsItem */
         NewsItem: {
             /** Title */
@@ -480,6 +494,12 @@ export interface components {
          * @enum {string}
          */
         SourceStatus: "ok" | "empty" | "source_down" | "unauthenticated" | "rate_limited" | "not_implemented";
+        /**
+         * Span
+         * @description Chart lookback window.
+         * @enum {string}
+         */
+        Span: "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -547,7 +567,8 @@ export interface operations {
     chart_chart__symbol__get: {
         parameters: {
             query?: {
-                interval?: string;
+                interval?: components["schemas"]["Interval"];
+                span?: components["schemas"]["Span"];
             };
             header?: never;
             path: {
@@ -610,7 +631,10 @@ export interface operations {
     };
     crypto_crypto__base___quote_ccy__get: {
         parameters: {
-            query?: never;
+            query?: {
+                interval?: components["schemas"]["Interval"];
+                span?: components["schemas"]["Span"];
+            };
             header?: never;
             path: {
                 base: string;

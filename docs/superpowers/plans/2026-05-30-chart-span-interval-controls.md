@@ -857,9 +857,9 @@ describe("resolveRange", () => {
 });
 
 describe("validIntervals", () => {
-  it("returns the allowed intervals for a span", () => {
-    expect(validIntervals("1D")).toEqual(["1m", "5m", "15m"]);
-    expect(validIntervals("5Y")).toEqual(["1d", "1w"]);
+  it("returns the allowed intervals for a span (all within Kraken's 720-bar cap)", () => {
+    expect(validIntervals("1D")).toEqual(["5m", "15m", "1h"]);
+    expect(validIntervals("5Y")).toEqual(["1w"]);
   });
 
   it("every valid interval is a member of the full INTERVALS list", () => {
@@ -893,16 +893,19 @@ export type Interval = Schemas["Interval"];
 export const SPANS: Span[] = ["1D", "5D", "1M", "3M", "1Y", "5Y"];
 export const INTERVALS: Interval[] = ["1m", "5m", "15m", "1h", "4h", "1d", "1w"];
 
-// Which intervals are sensible for each span. Keeps every request well under the
-// per-source candle-count caps (Kraken ~720; IBKR period/bar limits) and matches
-// Bloomberg/TradingView muscle memory.
+// Which intervals are sensible for each span. CRITICAL INVARIANT: every (span,
+// interval) pair here must satisfy span/interval <= 720 bars, because Kraken's
+// OHLC endpoint returns at most 720 candles and silently truncates beyond that.
+// (e.g. 1M/15m = 2880 bars would show only the last ~7 days, not a month.) The
+// finest interval is therefore dropped from each span. Matches Bloomberg/
+// TradingView muscle memory while keeping every request inside the cap.
 const VALID: Record<Span, Interval[]> = {
-  "1D": ["1m", "5m", "15m"],
-  "5D": ["5m", "15m", "1h"],
-  "1M": ["15m", "1h", "4h"],
-  "3M": ["1h", "4h", "1d"],
-  "1Y": ["4h", "1d", "1w"],
-  "5Y": ["1d", "1w"],
+  "1D": ["5m", "15m", "1h"],
+  "5D": ["15m", "1h", "4h"],
+  "1M": ["1h", "4h", "1d"],
+  "3M": ["4h", "1d", "1w"],
+  "1Y": ["1d", "1w"],
+  "5Y": ["1w"],
 };
 
 // The interval a span snaps to when the current interval is invalid for it.

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from ..models import AsOfCurve, Balance, Candle, NewsItem, Position, Quote
+from ..models import AsOfCurve, Balance, Candle, Interval, NewsItem, Position, Quote, Span
 
 
 class NotSupported(Exception):
@@ -41,7 +41,9 @@ class Adapter:
     #: stable lowercase identifier, e.g. "mock", "kraken", "ibkr", "fred"
     name: str = "base"
 
-    async def get_candles(self, symbol: str, interval: str = "1d") -> list[Candle]:
+    async def get_candles(
+        self, symbol: str, interval: Interval = Interval.D1, span: Span = Span.M1
+    ) -> list[Candle]:
         raise NotSupported(f"{self.name} does not support candles")
 
     async def get_quote(self, symbol: str) -> Quote:

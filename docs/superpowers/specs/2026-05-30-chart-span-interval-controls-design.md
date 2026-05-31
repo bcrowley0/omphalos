@@ -41,14 +41,19 @@ Pairing is governed by a pure, unit-tested function `resolveRange(span, interval
 Indicative span → default interval mapping (final values tuned in implementation
 against source caps):
 
-| Span | Default interval | Valid intervals            |
-|------|------------------|----------------------------|
-| 1D   | 5m               | 1m, 5m, 15m                |
-| 5D   | 15m              | 5m, 15m, 1h                |
-| 1M   | 1h               | 15m, 1h, 4h                |
-| 3M   | 4h               | 1h, 4h, 1d                 |
-| 1Y   | 1d               | 4h, 1d, 1w                 |
-| 5Y   | 1w               | 1d, 1w                     |
+Every (span, interval) pair must stay within Kraken's hard 720-candle cap
+(span/interval ≤ 720 bars), or Kraken silently truncates and the chart shows only
+the tail of the requested window. The finest interval is therefore dropped from
+each span:
+
+| Span | Default interval | Valid intervals | Max bars (coarsest→finest) |
+|------|------------------|-----------------|----------------------------|
+| 1D   | 5m               | 5m, 15m, 1h     | 24 – 288                   |
+| 5D   | 15m              | 15m, 1h, 4h     | 30 – 480                   |
+| 1M   | 1h               | 1h, 4h, 1d      | 30 – 720                   |
+| 3M   | 4h               | 4h, 1d, 1w      | 13 – 540                   |
+| 1Y   | 1d               | 1d, 1w          | 52 – 365                   |
+| 5Y   | 1w               | 1w              | 260                        |
 
 Rejected alternative: fully independent rows with no snapping. Rejected because
 it permits nonsensical requests (e.g. 5Y of 1m candles) and breaks the muscle
