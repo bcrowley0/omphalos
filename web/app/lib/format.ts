@@ -7,13 +7,13 @@ export function timeAgo(ts: number | null | undefined): string {
   return hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`;
 }
 
-// Absolute local timestamp: time-of-day for today, "Mon D, HH:MM" otherwise.
+// Absolute local timestamp: time-of-day for today's items, just the date ("Mon D")
+// for older ones.
 export function absTime(ts: number | null | undefined): string {
   if (!ts) return "";
   const d = new Date(ts);
-  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
   const sameDay = new Date().toDateString() === d.toDateString();
   return sameDay
-    ? time
-    : `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, ${time}`;
+    ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false })
+    : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
