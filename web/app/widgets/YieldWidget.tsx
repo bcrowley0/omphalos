@@ -7,6 +7,7 @@ import { computeDeltaBp } from "../lib/yieldDelta";
 import {
   type YieldPrefs,
   type CompareCurve,
+  type ColorTheme,
   DEFAULT_YIELD_PREFS,
   compareKey,
   exactDates,
@@ -14,18 +15,14 @@ import {
   toggleDelta,
   addExactDate,
   removeCompare,
+  setColorTheme,
   loadYieldPrefs,
   saveYieldPrefs,
 } from "../lib/yieldPrefs";
+import { COLOR_THEMES, themeColors } from "../lib/yieldColors";
 import type { Schemas, YieldPoint } from "../lib/api/client";
 
 type AsOfCurve = Schemas["AsOfCurve"];
-
-// Vivid, mutually-distinct colors for overlaid comparison curves. Saturated so
-// they pop on the dark background, and all clear of the green "current" curve
-// (--accent) — no greens — for legibility (and red/green-colorblind safety). Led
-// by blue (max contrast vs green) since the first slot is the default 1w overlay.
-const PALETTE = ["#4c8dff", "#f5b833", "#ff5fb4", "#a06bff", "#ff8a3d", "#2bc8d4"];
 
 type RenderCurve = { key: string; label: string; color: string; points: YieldPoint[] };
 
@@ -212,6 +209,28 @@ function SettingsPopover({
               add
             </button>
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.6rem", fontSize: "0.85rem" }}>
+            <span style={{ color: "var(--muted)" }}>Colors</span>
+            <select
+              value={prefs.colorTheme}
+              onChange={(e) => setPrefs(setColorTheme(prefs, e.target.value as ColorTheme))}
+              style={{
+                flex: 1,
+                background: "var(--background)",
+                color: "var(--foreground)",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                padding: "0.2rem 0.4rem",
+                fontFamily: "inherit",
+              }}
+            >
+              {(Object.keys(COLOR_THEMES) as ColorTheme[]).map((k) => (
+                <option key={k} value={k}>
+                  {COLOR_THEMES[k].label}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={() => setPrefs(DEFAULT_YIELD_PREFS)}
             style={{
@@ -262,11 +281,12 @@ export default function YieldWidget() {
             return <p style={{ color: "var(--muted)" }}>No curve data.</p>;
           }
           const tenors = current.points.map((p) => p.tenorLabel);
+          const theme = themeColors(prefs.colorTheme);
 
-          // Chart curves: current (if on) + each compare with onChart, colored.
+          // Chart curves: current (if on) + each compare with onChart, colored per theme.
           const chartCurves: RenderCurve[] = [];
           if (prefs.currentOnChart) {
-            chartCurves.push({ key: "current", label: "Today", color: "var(--accent)", points: current.points });
+            chartCurves.push({ key: "current", label: "Today", color: theme.current, points: current.points });
           }
           prefs.compares.forEach((c: CompareCurve, i) => {
             if (!c.onChart) return;
@@ -275,7 +295,7 @@ export default function YieldWidget() {
               chartCurves.push({
                 key: resolved.key,
                 label: resolved.label,
-                color: PALETTE[i % PALETTE.length],
+                color: theme.palette[i % theme.palette.length],
                 points: resolved.points,
               });
             }
@@ -321,7 +341,7 @@ export default function YieldWidget() {
                       {deltaCols.map(({ curve, deltas }) => {
                         const d = deltas[p.tenorLabel];
                         return (
-                          <td key={curve.key} style={{ textAlign: "right", padding: "0.3rem 0.6rem", color: signColor(d) }}>
+                          <td key={curve.key} style={{ textAlign: "right", padding: "0.3rem 0.6rem", color: theme.deltaSemantic ? signColor(d) : "var(--foreground)" }}>
                             {d === null || d === undefined ? "—" : `${d > 0 ? "+" : ""}${fmt(d, 1)}`}
                           </td>
                         );
