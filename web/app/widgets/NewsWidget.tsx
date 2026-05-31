@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ResourceView, WidgetFrame } from "../components/ui";
+import WidgetSettingsMenu from "../components/WidgetSettingsMenu";
 import { addFeed, loadFeeds, loadNews } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import { terminalStore } from "../lib/store";
@@ -55,7 +56,7 @@ function FeedBar({ active }: { active?: string }) {
   }
 
   return (
-    <div style={{ marginBottom: "1rem" }}>
+    <div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.6rem" }}>
         {/* the default News tab (no feed) = aggregate of all sources */}
         <button
@@ -148,9 +149,19 @@ export default function NewsWidget({ feed }: { feed?: string }) {
   const load = useCallback(() => loadNews(feed), [feed]);
   const { state, refresh } = useResource(load);
 
-  return (
-    <WidgetFrame title={feed ? `News · ${feed}` : "News · All"} onRefresh={refresh} busy={state.kind === "loading"}>
+  const settings = (
+    <WidgetSettingsMenu title="news settings" label="⚙ feeds" minWidth={300}>
       <FeedBar active={feed} />
+    </WidgetSettingsMenu>
+  );
+
+  return (
+    <WidgetFrame
+      title={feed ? `News · ${feed}` : "News · All"}
+      onRefresh={refresh}
+      busy={state.kind === "loading"}
+      headerExtra={settings}
+    >
       <ResourceView state={state}>
         {(data) =>
           data.items.length === 0 ? (
@@ -187,7 +198,6 @@ export default function NewsWidget({ feed }: { feed?: string }) {
                     borderTop: "1px solid var(--border)",
                   }}
                 >
-                  {/* One line; links OUT to the browser. Full headline + teaser on hover. */}
                   <a
                     href={item.url}
                     target="_blank"
