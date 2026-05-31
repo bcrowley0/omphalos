@@ -71,7 +71,7 @@ export default function PersonFeedWidget({ person }: { person: string }) {
                   {items.map((item, i) => {
                     const isNew = (item.publishedTs ?? 0) > seenAtMount;
                     return (
-                      <li key={`${item.url}-${i}`} style={{ borderTop: i ? "1px solid var(--border)" : "none", paddingTop: i ? "0.9rem" : 0 }}>
+                      <li key={item.url} style={{ borderTop: i ? "1px solid var(--border)" : "none", paddingTop: i ? "0.9rem" : 0 }}>
                         <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1rem" }}>
                           {isNew && <span style={{ color: "var(--accent)", marginRight: "0.4rem" }}>●</span>}
                           {item.title}
