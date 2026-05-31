@@ -128,7 +128,7 @@ def kraken_ohlc_params(interval: Interval, span: Span, now_ms: int) -> tuple[int
     return minutes, since_s
 
 
-def _check_error(payload: dict[str, Any], source: str) -> None:
+def _check_error(payload: dict[str, Any]) -> None:
     errors = payload.get("error") or []
     if not errors:
         return
@@ -149,7 +149,7 @@ def _first_result(payload: dict[str, Any], *, skip: AbstractSet[str] = frozenset
 
 def parse_ticker(payload: dict[str, Any], symbol: str) -> Quote:
     """Pure: Kraken Ticker payload -> canonical Quote."""
-    _check_error(payload, "kraken")
+    _check_error(payload)
     t = _first_result(payload)
     last = float(t["c"][0])
     bid = float(t["b"][0])
@@ -172,7 +172,7 @@ def parse_ticker(payload: dict[str, Any], symbol: str) -> Quote:
 
 def parse_ohlc(payload: dict[str, Any]) -> list[Candle]:
     """Pure: Kraken OHLC payload -> canonical Candles (seconds -> ms)."""
-    _check_error(payload, "kraken")
+    _check_error(payload)
     rows = _first_result(payload, skip={"last"})
     candles: list[Candle] = []
     for row in rows:
