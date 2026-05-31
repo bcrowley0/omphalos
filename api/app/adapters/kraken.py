@@ -13,6 +13,7 @@ import hmac
 import threading
 import time
 import urllib.parse
+from collections.abc import Set as AbstractSet
 from typing import Any
 
 from ..cache import cache
@@ -133,13 +134,11 @@ def _check_error(payload: dict[str, Any], source: str) -> None:
         return
     joined = "; ".join(errors)
     if "rate limit" in joined.lower():
-        from .base import RateLimited
-
         raise RateLimited(f"kraken: {joined}")
     raise SourceUnavailable(f"kraken: {joined}")
 
 
-def _first_result(payload: dict[str, Any], *, skip: set[str] = frozenset()) -> Any:
+def _first_result(payload: dict[str, Any], *, skip: AbstractSet[str] = frozenset()) -> Any:
     result = payload.get("result") or {}
     for key, value in result.items():
         if key in skip:
