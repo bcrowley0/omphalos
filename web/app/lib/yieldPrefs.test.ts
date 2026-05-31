@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_YIELD_PREFS,
   compareKey,
+  coerceYieldPrefs,
   exactDates,
   toggleChart,
   toggleDelta,
@@ -43,5 +44,32 @@ describe("yieldPrefs", () => {
   it("removeCompare drops the matching compare", () => {
     const prefs = removeCompare(DEFAULT_YIELD_PREFS, "1y");
     expect(prefs.compares.find((c) => compareKey(c) === "1y")).toBeUndefined();
+  });
+});
+
+describe("coerceYieldPrefs", () => {
+  it("returns defaults for null / undefined / non-object", () => {
+    expect(coerceYieldPrefs(null)).toEqual(DEFAULT_YIELD_PREFS);
+    expect(coerceYieldPrefs(undefined)).toEqual(DEFAULT_YIELD_PREFS);
+    expect(coerceYieldPrefs("x")).toEqual(DEFAULT_YIELD_PREFS);
+  });
+
+  it("returns defaults when compares is not an array", () => {
+    expect(coerceYieldPrefs({ currentOnChart: false })).toEqual(DEFAULT_YIELD_PREFS);
+  });
+
+  it("filters invalid compare entries and keeps valid ones", () => {
+    const result = coerceYieldPrefs({
+      currentOnChart: false,
+      compares: [
+        { kind: "relative", period: "1w", onChart: true, showDelta: false },
+        { kind: "bogus" },
+        42,
+      ],
+      colorTheme: "blue",
+    });
+    expect(result.currentOnChart).toBe(false);
+    expect(result.colorTheme).toBe("blue");
+    expect(result.compares.map(compareKey)).toEqual(["1w"]);
   });
 });

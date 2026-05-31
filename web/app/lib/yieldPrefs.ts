@@ -104,30 +104,16 @@ export function exactDates(prefs: YieldPrefs): string[] {
     .map((c) => c.date);
 }
 
-const STORAGE_KEY = "omphalos.yield.prefs.v1";
+export const YIELD_PREFS_KEY = "omphalos.yield.prefs.v1";
 
-export function loadYieldPrefs(): YieldPrefs {
-  if (typeof window === "undefined") return DEFAULT_YIELD_PREFS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_YIELD_PREFS;
-    const parsed = JSON.parse(raw) as Partial<YieldPrefs>;
-    if (!Array.isArray(parsed.compares)) return DEFAULT_YIELD_PREFS;
-    return {
-      currentOnChart: typeof parsed.currentOnChart === "boolean" ? parsed.currentOnChart : true,
-      compares: sortCompares(parsed.compares.filter(isCompareCurve)),
-      colorTheme: isColorTheme(parsed.colorTheme) ? parsed.colorTheme : "vivid",
-    };
-  } catch {
-    return DEFAULT_YIELD_PREFS;
-  }
+// Pure: validate untrusted parsed JSON into a YieldPrefs (localStorage is untrusted).
+export function coerceYieldPrefs(parsed: unknown): YieldPrefs {
+  const p = (typeof parsed === "object" && parsed !== null ? parsed : {}) as Partial<YieldPrefs>;
+  if (!Array.isArray(p.compares)) return DEFAULT_YIELD_PREFS;
+  return {
+    currentOnChart: typeof p.currentOnChart === "boolean" ? p.currentOnChart : true,
+    compares: sortCompares(p.compares.filter(isCompareCurve)),
+    colorTheme: isColorTheme(p.colorTheme) ? p.colorTheme : "vivid",
+  };
 }
 
-export function saveYieldPrefs(prefs: YieldPrefs): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-  } catch {
-    /* storage unavailable / quota — non-fatal for a local-first prototype */
-  }
-}

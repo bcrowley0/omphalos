@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useMemo, useState } from "react";
 import { fmt, ResourceView, WidgetFrame, signColor } from "../components/ui";
+import WidgetSettingsMenu from "../components/WidgetSettingsMenu";
+import { useWidgetPrefs } from "../lib/widgetPrefs";
 import { loadYield } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import { computeDeltaBp } from "../lib/yieldDelta";
@@ -16,8 +18,8 @@ import {
   addExactDate,
   removeCompare,
   setColorTheme,
-  loadYieldPrefs,
-  saveYieldPrefs,
+  coerceYieldPrefs,
+  YIELD_PREFS_KEY,
 } from "../lib/yieldPrefs";
 import { COLOR_THEMES, themeColors } from "../lib/yieldColors";
 import type { Schemas, YieldPoint } from "../lib/api/client";
@@ -83,181 +85,145 @@ function SettingsPopover({
   setPrefs: (p: YieldPrefs) => void;
   curvesByKey: Map<string, AsOfCurve>;
 }) {
-  const [open, setOpen] = useState(false);
   const [dateInput, setDateInput] = useState("");
   const cell: React.CSSProperties = { padding: "0.2rem 0.5rem", fontSize: "0.85rem" };
 
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          background: "transparent",
-          color: "var(--foreground)",
-          border: "1px solid var(--border)",
-          borderRadius: 6,
-          padding: "0.3rem 0.7rem",
-          cursor: "pointer",
-          fontFamily: "inherit",
-        }}
-      >
-        ⚙ curves
-      </button>
-      {open && (
-        <div
+    <WidgetSettingsMenu label="⚙ curves" title="yield curve settings" minWidth={260}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+            <th style={{ ...cell, textAlign: "left" }}>Curve</th>
+            <th style={cell}>Chart</th>
+            <th style={cell}>Δ</th>
+            <th style={cell} />
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={cell}>Today</td>
+            <td style={{ ...cell, textAlign: "center" }}>
+              <input
+                type="checkbox"
+                checked={prefs.currentOnChart}
+                onChange={() => setPrefs({ ...prefs, currentOnChart: !prefs.currentOnChart })}
+              />
+            </td>
+            <td style={{ ...cell, textAlign: "center", color: "var(--muted)" }}>ref</td>
+            <td style={cell} />
+          </tr>
+          {prefs.compares.map((c) => {
+            const key = compareKey(c);
+            const resolved = curvesByKey.get(key);
+            return (
+              <tr key={key} style={{ borderTop: "1px solid var(--border)" }}>
+                <td style={cell}>
+                  {c.kind === "relative" ? c.period.toUpperCase() : c.date}
+                  {resolved && (
+                    <span style={{ color: "var(--muted)", marginLeft: 6, fontSize: "0.72rem" }}>
+                      {fmtDate(resolved.obsDate)}
+                    </span>
+                  )}
+                </td>
+                <td style={{ ...cell, textAlign: "center" }}>
+                  <input type="checkbox" checked={c.onChart} onChange={() => setPrefs(toggleChart(prefs, key))} />
+                </td>
+                <td style={{ ...cell, textAlign: "center" }}>
+                  <input type="checkbox" checked={c.showDelta} onChange={() => setPrefs(toggleDelta(prefs, key))} />
+                </td>
+                <td style={{ ...cell, textAlign: "center" }}>
+                  {c.kind === "exact" && (
+                    <button
+                      onClick={() => setPrefs(removeCompare(prefs, key))}
+                      style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}
+                      aria-label={`remove ${key}`}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.6rem" }}>
+        <input
+          type="date"
+          value={dateInput}
+          onChange={(e) => setDateInput(e.target.value)}
           style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 0.4rem)",
-            zIndex: 10,
-            background: "var(--background)",
+            flex: 1,
+            background: "transparent",
+            color: "var(--foreground)",
             border: "1px solid var(--border)",
-            borderRadius: 8,
-            padding: "0.6rem",
-            minWidth: 240,
-            boxShadow: "0 6px 24px rgba(0,0,0,0.3)",
+            borderRadius: 6,
+            padding: "0.2rem 0.4rem",
+            fontFamily: "inherit",
+          }}
+        />
+        <button
+          onClick={() => {
+            if (dateInput) {
+              setPrefs(addExactDate(prefs, dateInput));
+              setDateInput("");
+            }
+          }}
+          style={{
+            background: "transparent",
+            color: "var(--foreground)",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            padding: "0.2rem 0.6rem",
+            cursor: "pointer",
+            fontFamily: "inherit",
           }}
         >
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                <th style={{ ...cell, textAlign: "left" }}>Curve</th>
-                <th style={cell}>Chart</th>
-                <th style={cell}>Δ</th>
-                <th style={cell} />
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={cell}>Today</td>
-                <td style={{ ...cell, textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={prefs.currentOnChart}
-                    onChange={() => setPrefs({ ...prefs, currentOnChart: !prefs.currentOnChart })}
-                  />
-                </td>
-                <td style={{ ...cell, textAlign: "center", color: "var(--muted)" }}>ref</td>
-                <td style={cell} />
-              </tr>
-              {prefs.compares.map((c) => {
-                const key = compareKey(c);
-                const resolved = curvesByKey.get(key);
-                return (
-                  <tr key={key} style={{ borderTop: "1px solid var(--border)" }}>
-                    <td style={cell}>
-                      {c.kind === "relative" ? c.period.toUpperCase() : c.date}
-                      {resolved && (
-                        <span style={{ color: "var(--muted)", marginLeft: 6, fontSize: "0.72rem" }}>
-                          {fmtDate(resolved.obsDate)}
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ ...cell, textAlign: "center" }}>
-                      <input type="checkbox" checked={c.onChart} onChange={() => setPrefs(toggleChart(prefs, key))} />
-                    </td>
-                    <td style={{ ...cell, textAlign: "center" }}>
-                      <input type="checkbox" checked={c.showDelta} onChange={() => setPrefs(toggleDelta(prefs, key))} />
-                    </td>
-                    <td style={{ ...cell, textAlign: "center" }}>
-                      {c.kind === "exact" && (
-                        <button
-                          onClick={() => setPrefs(removeCompare(prefs, key))}
-                          style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}
-                          aria-label={`remove ${key}`}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.6rem" }}>
-            <input
-              type="date"
-              value={dateInput}
-              onChange={(e) => setDateInput(e.target.value)}
-              style={{
-                flex: 1,
-                background: "transparent",
-                color: "var(--foreground)",
-                border: "1px solid var(--border)",
-                borderRadius: 6,
-                padding: "0.2rem 0.4rem",
-                fontFamily: "inherit",
-              }}
-            />
-            <button
-              onClick={() => {
-                if (dateInput) {
-                  setPrefs(addExactDate(prefs, dateInput));
-                  setDateInput("");
-                }
-              }}
-              style={{
-                background: "transparent",
-                color: "var(--foreground)",
-                border: "1px solid var(--border)",
-                borderRadius: 6,
-                padding: "0.2rem 0.6rem",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              add
-            </button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.6rem", fontSize: "0.85rem" }}>
-            <span style={{ color: "var(--muted)" }}>Colors</span>
-            <select
-              value={prefs.colorTheme}
-              onChange={(e) => setPrefs(setColorTheme(prefs, e.target.value as ColorTheme))}
-              style={{
-                flex: 1,
-                background: "var(--background)",
-                color: "var(--foreground)",
-                border: "1px solid var(--border)",
-                borderRadius: 6,
-                padding: "0.2rem 0.4rem",
-                fontFamily: "inherit",
-              }}
-            >
-              {(Object.keys(COLOR_THEMES) as ColorTheme[]).map((k) => (
-                <option key={k} value={k}>
-                  {COLOR_THEMES[k].label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            onClick={() => setPrefs(DEFAULT_YIELD_PREFS)}
-            style={{
-              marginTop: "0.5rem",
-              background: "transparent",
-              color: "var(--muted)",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              fontSize: "0.8rem",
-            }}
-          >
-            reset to defaults
-          </button>
-        </div>
-      )}
-    </div>
+          add
+        </button>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.6rem", fontSize: "0.85rem" }}>
+        <span style={{ color: "var(--muted)" }}>Colors</span>
+        <select
+          value={prefs.colorTheme}
+          onChange={(e) => setPrefs(setColorTheme(prefs, e.target.value as ColorTheme))}
+          style={{
+            flex: 1,
+            background: "var(--background)",
+            color: "var(--foreground)",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            padding: "0.2rem 0.4rem",
+            fontFamily: "inherit",
+          }}
+        >
+          {(Object.keys(COLOR_THEMES) as ColorTheme[]).map((k) => (
+            <option key={k} value={k}>
+              {COLOR_THEMES[k].label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button
+        onClick={() => setPrefs(DEFAULT_YIELD_PREFS)}
+        style={{
+          marginTop: "0.5rem",
+          background: "transparent",
+          color: "var(--muted)",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          fontSize: "0.8rem",
+        }}
+      >
+        reset to defaults
+      </button>
+    </WidgetSettingsMenu>
   );
 }
 
 export default function YieldWidget() {
-  const [prefs, setPrefsState] = useState<YieldPrefs>(() => loadYieldPrefs());
-  const setPrefs = useCallback((p: YieldPrefs) => {
-    setPrefsState(p);
-    saveYieldPrefs(p);
-  }, []);
+  const [prefs, setPrefs] = useWidgetPrefs(YIELD_PREFS_KEY, DEFAULT_YIELD_PREFS, coerceYieldPrefs);
 
   const asof = exactDates(prefs);
   const asofKey = asof.join(",");
