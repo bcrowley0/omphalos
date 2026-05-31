@@ -76,6 +76,48 @@ def test_parse_feed_rewrites_nitter_link_to_x_com():
     assert items[0].url == "https://x.com/acct/status/123"
 
 
+# ZOOMERFIED prepends a constant `[ ZOOMER ]` tag to every headline. It's a source
+# label, not part of the story, so it's stripped from the title (and the body).
+_ZOOMER = """<?xml version="1.0"?>
+<rss version="2.0"><channel>
+  <title>@zoomerfied</title>
+  <item>
+    <title>[ ZOOMER ] Fed cuts rates by 25bps</title>
+    <link>https://nitter.net/zoomerfied/status/1#m</link>
+    <description>&lt;p&gt;[ ZOOMER ] Fed cuts rates by 25bps&lt;/p&gt;</description>
+    <pubDate>Wed, 05 Jun 2024 12:00:00 GMT</pubDate>
+  </item>
+  <item>
+    <title>[ ZOOMER ]</title>
+    <link>https://nitter.net/zoomerfied/status/2#m</link>
+    <description>Just the tag, no headline.</description>
+  </item>
+</channel></rss>"""
+
+
+def test_parse_feed_strips_known_source_tag_from_title():
+    items = parse_feed(_ZOOMER, "ZOOMERFIED")
+    assert items[0].title == "Fed cuts rates by 25bps"
+
+
+def test_parse_feed_drops_summary_after_detagging():
+    # Title and body both carry the tag; once stripped they're identical -> drop body.
+    items = parse_feed(_ZOOMER, "ZOOMERFIED")
+    assert items[0].summary == ""
+
+
+def test_parse_feed_title_that_is_only_a_tag_falls_back_to_untitled():
+    items = parse_feed(_ZOOMER, "ZOOMERFIED")
+    assert items[1].title == "(untitled)"
+    assert items[1].summary == "Just the tag, no headline."
+
+
+def test_parse_feed_does_not_strip_brackets_from_other_sources():
+    # The same text from a source without a configured tag is left intact.
+    items = parse_feed(_ZOOMER, "DEITAONE")
+    assert items[0].title == "[ ZOOMER ] Fed cuts rates by 25bps"
+
+
 def test_interleave_caps_firehose_and_includes_every_source():
     def mk(src, url, ts):
         return NewsItem(title="t", summary="", url=url, published_ts=ts, feed=src)

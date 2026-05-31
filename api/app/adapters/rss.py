@@ -14,7 +14,6 @@ import calendar
 import re
 import threading
 from time import struct_time
-from typing import Any
 
 import feedparser
 
@@ -119,9 +118,40 @@ _ALL = "ALL"
 
 _TAG_RE = re.compile(r"<[^>]+>")
 
+# Per-source title tags: constant boilerplate some accounts prepend to EVERY
+# headline (a source label, not part of the story). Keyed by source name (the
+# `feed_label` parse_feed receives — uppercase for configured sources). Each
+# pattern is anchored at the start, case-insensitive, and whitespace-tolerant;
+# stripped from both title and body so headlines read clean AND so a body that
+# merely repeats the de-tagged title collapses to nothing. Add a source's tag
+# here to clean it up.
+_TITLE_TAGS: dict[str, list[re.Pattern[str]]] = {
+    "ZOOMERFIED": [re.compile(r"^\s*\[\s*ZOOMER\s*\]\s*", re.IGNORECASE)],
+}
+
+_WS_RE = re.compile(r"\s+")
+
 
 def _strip_html(text: str) -> str:
     return _TAG_RE.sub("", text or "").strip()
+
+
+def _strip_known_tags(text: str, source: str) -> str:
+    """Remove `source`'s configured boilerplate tags from the front of `text`."""
+    for pat in _TITLE_TAGS.get(source.upper(), ()):
+        # Loop in case the tag is repeated (e.g. "[ ZOOMER ][ ZOOMER ] …").
+        while True:
+            stripped = pat.sub("", text)
+            if stripped == text:
+                break
+            text = stripped
+    return text.strip()
+
+
+def _same_text(a: str, b: str) -> bool:
+    """True if two strings are the same headline modulo whitespace and case."""
+    norm = lambda s: _WS_RE.sub(" ", s).strip().casefold()  # noqa: E731
+    return norm(a) == norm(b)
 
 
 def _normalize_link(url: str) -> str:
@@ -148,9 +178,9 @@ def parse_feed(xml: str, feed_label: str) -> list[NewsItem]:
     parsed = feedparser.parse(xml)
     items: list[NewsItem] = []
     for entry in parsed.entries[:_MAX_ITEMS]:
-        title = _strip_html(getattr(entry, "title", "")) or "(untitled)"
-        summary = _strip_html(getattr(entry, "summary", ""))
-        if summary == title:
+        title = _strip_known_tags(_strip_html(getattr(entry, "title", "")), feed_label) or "(untitled)"
+        summary = _strip_known_tags(_strip_html(getattr(entry, "summary", "")), feed_label)
+        if _same_text(summary, title):
             summary = ""  # X/tweet feeds repeat the title as the body — don't show it twice
         elif len(summary) > 280:
             summary = summary[:277].rstrip() + "…"
