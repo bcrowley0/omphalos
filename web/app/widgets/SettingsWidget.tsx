@@ -18,6 +18,9 @@ import {
   setDefaultInterval,
 } from "../lib/appSettings";
 import { THEME_LABELS, type ThemeName } from "../lib/themes";
+import { useIbkrAuth } from "../components/IbkrAuthProvider";
+import { IbkrLoginButton, IbkrRecheckButton } from "../components/IbkrLoginButton";
+import { ibkrDotColor } from "../lib/ibkrAuth";
 import { SPANS, INTERVALS, type Span, type Interval } from "../lib/chart/range";
 
 const selectStyle: React.CSSProperties = {
@@ -89,6 +92,7 @@ export default function SettingsWidget() {
 
   const statusLoad = useCallback(() => loadStatus(), []);
   const { state, refresh } = useResource(statusLoad);
+  const ibkr = useIbkrAuth();
 
   // Local-first key entry. Inputs are write-only: never prefilled, cleared after
   // save. Keys go to the localhost backend → api/.env; never read back here.
@@ -186,16 +190,38 @@ export default function SettingsWidget() {
         )}
         {state.kind === "ok" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-            {state.data.sources.map((s) => (
-              <div key={s.source} style={{ display: "flex", alignItems: "baseline", gap: "0.6rem" }}>
-                <span
-                  title={s.configured ? "configured" : "not configured"}
-                  style={{ width: 9, height: 9, borderRadius: 999, background: s.configured ? "var(--accent)" : "var(--muted)", display: "inline-block" }}
-                />
-                <strong style={{ textTransform: "uppercase", fontSize: "0.78rem", width: "4.5rem" }}>{s.source}</strong>
-                <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>{s.detail}</span>
-              </div>
-            ))}
+            {state.data.sources.map((s) => {
+              const isIbkr = s.source === "ibkr";
+              const dotColor = isIbkr
+                ? ibkrDotColor(ibkr.state)
+                : s.configured
+                  ? "var(--accent)"
+                  : "var(--muted)";
+              const detail = isIbkr ? ibkr.detail ?? s.detail : s.detail;
+              return (
+                <div
+                  key={s.source}
+                  style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}
+                >
+                  <span
+                    title={isIbkr ? ibkr.state ?? "checking" : s.configured ? "configured" : "not configured"}
+                    style={{ width: 9, height: 9, borderRadius: 999, background: dotColor, display: "inline-block" }}
+                  />
+                  <strong style={{ textTransform: "uppercase", fontSize: "0.78rem", width: "4.5rem" }}>
+                    {s.source}
+                  </strong>
+                  <span style={{ color: "var(--muted)", fontSize: "0.82rem", flex: 1, minWidth: "10rem" }}>
+                    {detail}
+                  </span>
+                  {isIbkr && (
+                    <>
+                      <IbkrLoginButton loginUrl={ibkr.loginUrl} />
+                      <IbkrRecheckButton onClick={ibkr.recheck} loading={ibkr.loading} />
+                    </>
+                  )}
+                </div>
+              );
+            })}
             <div style={{ marginTop: "0.8rem", display: "flex", flexDirection: "column", gap: "0.45rem" }}>
               <KeyInput label="FRED key" value={fredKey} onChange={setFredKey} />
               <KeyInput label="Kraken key" value={krakenKey} onChange={setKrakenKey} />
