@@ -1,5 +1,7 @@
 """Unit tests for Kraken normalization (pure functions, no network)."""
 
+import pytest
+
 from app.adapters.kraken import (
     krakenize_pair,
     normalize_pair,
@@ -121,6 +123,58 @@ def test_parse_open_positions_maps_fields_and_side():
 
 def test_parse_open_positions_empty_result_is_empty_list():
     assert parse_open_positions({"error": [], "result": {}}) == []
+
+
+def test_parse_open_positions_consolidates_lots_of_same_pair_and_side():
+    payload = {
+        "error": [],
+        "result": {
+            "TX1": {"pair": "XXBTZUSD", "type": "buy", "vol": "1.0",
+                    "cost": "30000.0", "margin": "6000.0", "value": "31000.0", "net": "1000.0"},
+            "TX2": {"pair": "XXBTZUSD", "type": "buy", "vol": "0.5",
+                    "cost": "20000.0", "margin": "4000.0", "value": "15500.0", "net": "-500.0"},
+        },
+    }
+    positions = parse_open_positions(payload)
+    assert len(positions) == 1
+    btc = positions[0]
+    assert btc.symbol == "BTC/USD"
+    assert btc.side == "long"
+    assert btc.qty == 1.5  # 1.0 + 0.5
+    assert btc.avg_cost == pytest.approx(50000.0 / 1.5)  # Σcost / Σqty (size-weighted)
+    assert btc.market_value == 46500.0  # 31000 + 15500
+    assert btc.unrealized_pnl == 500.0  # 1000 + (-500)
+    assert btc.margin_used == 10000.0  # 6000 + 4000
+
+
+def test_parse_open_positions_keeps_long_and_short_of_same_pair_separate():
+    payload = {
+        "error": [],
+        "result": {
+            "TX1": {"pair": "XXBTZUSD", "type": "buy", "vol": "1.0",
+                    "cost": "30000.0", "margin": "6000.0", "value": "31000.0", "net": "1000.0"},
+            "TX2": {"pair": "XXBTZUSD", "type": "sell", "vol": "0.5",
+                    "cost": "15000.0", "margin": "3000.0", "value": "14500.0", "net": "500.0"},
+        },
+    }
+    by_side = {p.side: p for p in parse_open_positions(payload)}
+    assert set(by_side) == {"long", "short"}
+    assert by_side["long"].qty == 1.0
+    assert by_side["short"].qty == 0.5
+    assert all(p.symbol == "BTC/USD" for p in by_side.values())
+
+
+def test_parse_open_positions_zero_total_vol_avg_cost_is_zero():
+    payload = {
+        "error": [],
+        "result": {
+            "TX1": {"pair": "XXBTZUSD", "type": "buy", "vol": "0", "cost": "0.0",
+                    "margin": "0.0", "value": "0.0", "net": "0.0"},
+        },
+    }
+    positions = parse_open_positions(payload)
+    assert len(positions) == 1
+    assert positions[0].avg_cost == 0.0
 
 
 def test_parse_open_positions_zero_vol_avg_cost_is_zero():

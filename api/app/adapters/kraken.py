@@ -105,23 +105,46 @@ def parse_balances(payload: dict[str, Any]) -> list[Balance]:
 def parse_open_positions(payload: dict[str, Any]) -> list[Position]:
     """Pure: Kraken OpenPositions payload (docalcs=true) -> canonical Positions.
 
-    Result is { txid: {pair, type, vol, cost, margin, value, net}, ... }.
-    `type` buy->long, sell->short. avg_cost is per-unit (cost/vol).
+    Result is { txid: {pair, type, vol, cost, margin, value, net}, ... }. Kraken
+    returns one entry per lot, so a single pair commonly spans many rows; we
+    CONSOLIDATE lots sharing the same (pair, side) into one Position. Summed
+    fields: qty, cost, value (market_value), net (unrealized_pnl), margin
+    (margin_used). avg_cost is the size-weighted entry price (Σcost / Σqty).
+    Long (buy) and short (sell) lots of the same pair stay separate so the side
+    and weighted cost remain meaningful. First-seen pair+side order is kept.
     """
     result = payload.get("result") or {}
-    out: list[Position] = []
+    # Accumulate raw sums per (symbol, side); recompute avg_cost at the end.
+    groups: dict[tuple[str, str], dict[str, float]] = {}
+    order: list[tuple[str, str]] = []
     for info in result.values():
-        vol = float(info.get("vol", 0) or 0)
-        cost = float(info.get("cost", 0) or 0)
+        symbol = normalize_pair(str(info.get("pair", "")))
+        side = "long" if info.get("type") == "buy" else "short"
+        key = (symbol, side)
+        agg = groups.get(key)
+        if agg is None:
+            agg = {"qty": 0.0, "cost": 0.0, "value": 0.0, "net": 0.0, "margin": 0.0}
+            groups[key] = agg
+            order.append(key)
+        agg["qty"] += float(info.get("vol", 0) or 0)
+        agg["cost"] += float(info.get("cost", 0) or 0)
+        agg["value"] += float(info.get("value", 0) or 0)
+        agg["net"] += float(info.get("net", 0) or 0)
+        agg["margin"] += float(info.get("margin", 0) or 0)
+
+    out: list[Position] = []
+    for symbol, side in order:
+        agg = groups[(symbol, side)]
+        qty = agg["qty"]
         out.append(
             Position(
-                symbol=normalize_pair(str(info.get("pair", ""))),
-                side="long" if info.get("type") == "buy" else "short",
-                qty=vol,
-                avg_cost=(cost / vol) if vol else 0.0,
-                market_value=float(info.get("value", 0) or 0),
-                unrealized_pnl=float(info.get("net", 0) or 0),
-                margin_used=float(info.get("margin", 0) or 0),
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                avg_cost=(agg["cost"] / qty) if qty else 0.0,
+                market_value=agg["value"],
+                unrealized_pnl=agg["net"],
+                margin_used=agg["margin"],
                 source="kraken",
             )
         )
