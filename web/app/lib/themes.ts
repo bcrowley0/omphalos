@@ -2,7 +2,7 @@
 // in globals.css (:root); selecting one overrides them on document.documentElement.
 // Single source of truth for app colors.
 
-export type ThemeName = "midnight" | "slate" | "paper";
+export type ThemeName = "midnight" | "carbon" | "slate" | "paper";
 
 export type ThemeVars = {
   background: string;
@@ -24,6 +24,16 @@ export const THEMES: Record<ThemeName, ThemeVars> = {
     error: "#e5534b",
     panel: "#141925",
     border: "#232b3a",
+  },
+  // Deep neutral charcoal with a warm amber accent (true-dark, no blue tint).
+  carbon: {
+    background: "#0c0c0c",
+    foreground: "#e4e4e4",
+    muted: "#808080",
+    accent: "#f0a830",
+    error: "#e5534b",
+    panel: "#181818",
+    border: "#2c2c2c",
   },
   // Lighter cool-gray dark.
   slate: {
@@ -49,6 +59,7 @@ export const THEMES: Record<ThemeName, ThemeVars> = {
 
 export const THEME_LABELS: Record<ThemeName, string> = {
   midnight: "Midnight",
+  carbon: "Carbon",
   slate: "Slate",
   paper: "Paper (light)",
 };
