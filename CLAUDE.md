@@ -9,7 +9,7 @@ conflicts with this file, follow this file and flag the conflict.**
 
 ## Stack (fixed — do not substitute)
 - Frontend: Next.js (App Router) + TypeScript + React.
-- Backend: FastAPI (Python 3.11+), separate process.
+- Backend: FastAPI (Python 3.14), separate process.
 - Charts: TradingView **Lightweight Charts** (free OSS render library; supplies NO
   data). Pin a specific major version and verify the series-creation API against
   THAT version's docs before writing chart code — the API changed across majors.
@@ -48,6 +48,7 @@ source-specific formats:
 - Balance:   `{ asset, total, available, source }`
 - NewsItem:  `{ title, summary, url, publishedTs, feed }`
 - YieldPoint:`{ tenorLabel, tenorYears, ratePct, obsDate }`
+- AsOfCurve: `{ key, label, requestedDate, obsDate, points: [YieldPoint] }` (a curve as of one date)
 
 ## Command grammar (plain verbs)
 Parser and symbol-router are pure, unit-tested functions. Each command opens or
@@ -59,6 +60,8 @@ focuses a widget tab.
 - `yield`                      Treasury yield curve (FRED)
 - `crypto <PAIR>`              Kraken ticker/chart, e.g. `crypto BTC/USD`
 - `news [feed]`                news list (optional feed)
+- `follow <NAME>` / `unfollow <NAME>`  follow/unfollow a person's aggregated feed
+- `following`                  roster + aggregated feed of followed people
 - `cal`                        economic calendar (FRED releases or stub)
 - `help`                       command list
 

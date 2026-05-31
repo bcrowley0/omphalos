@@ -69,7 +69,7 @@ explicit loading / error / empty / source states and an on-demand **refresh**.
 ## Dependency management
 
 - **Frontend:** npm. `web/package-lock.json` is the committed lockfile.
-- **Backend:** [pip-tools]. Top-level deps live in `api/requirements.in`; the pinned
+- **Backend:** [pip-tools](https://github.com/jazzband/pip-tools). Top-level deps live in `api/requirements.in`; the pinned
   lockfile `api/requirements.txt` is generated with:
   ```bash
   ./.venv/bin/pip-compile requirements.in -o requirements.txt
@@ -85,7 +85,7 @@ in frontend code or in git. Every external call is proxied through the backend.
 | Source | Used by | Auth | Without it |
 | --- | --- | --- | --- |
 | Kraken public | `crypto`, `chart <PAIR>` | none | works out of the box |
-| RSS (FT/WSJ/Bloomberg/custom) | `news` | none | works out of the box |
+| RSS (FT/WSJ/Bloomberg/CNBC/Economist/X·Nitter/custom) | `news` | none | works out of the box |
 | FRED | `yield` | `FRED_API_KEY` | shows the **unauthenticated** state |
 | Kraken private | `port` balances | `KRAKEN_API_KEY`/`SECRET` | shows the **unauthenticated** state |
 | IBKR gateway | `port` positions, equity `quote`/`chart` | running CP Gateway | shows **gateway down** / **log in** |
@@ -126,8 +126,8 @@ opens or focuses a widget tab:
 | `watch <SYMBOL>` / `unwatch <SYMBOL>` | add/remove watchlist symbol (opens watchlist) |
 | `crypto <PAIR>` | crypto ticker + chart, e.g. `crypto BTC/USD` |
 | `port` | portfolio: positions + balances |
-| `yield` | Treasury yield curve |
-| `news [feed]` | headlines, linking out; no feed = **All** (FT + WSJ + Bloomberg merged), or `news FT`/`news WSJ`/`news Bloomberg` |
+| `yield` | Treasury yield curve — current + historical as-of curves with per-tenor basis-point change columns |
+| `news [feed]` | headlines, linking out; no feed = **All** (every configured source, round-robin merged so no high-frequency source dominates), or name one: `news FT`, `news WSJ`, `news Bloomberg`, `news CNBC`, `news Economist`, plus several X/Twitter market accounts (Nitter-bridged) |
 | `follow <name>` / `unfollow <name>` | follow/unfollow a person (e.g. `follow Andrej Karpathy`) |
 | `following` | roster + aggregated feed of followed people's public items |
 | `cal` | economic calendar (stubbed "not implemented") |
@@ -194,4 +194,17 @@ Built in phases (see `PROMPT.md`). All phases complete:
   status), conid resolution + cache, documented numeric snapshot fields, positions;
   three explicit gateway states; TLS off for the localhost gateway only.
 
-[pip-tools]: https://github.com/jazzband/pip-tools
+### Enhancements since the initial phases
+
+- **Yield-curve history:** historical as-of curves (relative periods or exact
+  dates) overlaid on the chart, with per-tenor basis-point change columns vs the
+  current curve; show/hide controls in a settings popover; selection persists in
+  `localStorage`.
+- **Chart span/interval controls:** span (1D–5Y) and candle-interval (1m–1w)
+  button rows on the chart widget, wired through Kraken and IBKR; invalid pairs are
+  disabled to respect Kraken's 720-bar cap.
+- **Expanded news sources:** Bloomberg, CNBC, Economist, and several X/Twitter
+  market accounts (Nitter-bridged) added beyond the original FT/WSJ; the **All**
+  view round-robins across sources so no single high-frequency feed dominates.
+- **Follow people:** aggregated per-person feeds (news/video/blog/podcast) with a
+  primary/on-topic curation filter and feed-wide dedupe.

@@ -1,5 +1,10 @@
 # Kickoff: build Omphalos
 
+> **Historical kickoff prompt.** All phases below are complete; the project has
+> since grown beyond them (yield-curve history, chart span/interval controls,
+> expanded news sources, follow-people). See [`README.md`](./README.md) for the
+> current feature set. This file is kept verbatim for provenance.
+
 Read **`CLAUDE.md`** in full first — it holds the binding rules, fixed stack, type
 contract, canonical data model, and command grammar. This prompt only defines the
 build sequence. When a phase references a per-source note, read the matching file
