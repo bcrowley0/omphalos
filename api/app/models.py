@@ -12,6 +12,7 @@ alias generator; Python code uses idiomatic snake_case internally.
 """
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
@@ -275,3 +276,17 @@ class KeysUpdateRequest(CamelModel):
     fred_api_key: str | None = None
     kraken_api_key: str | None = None
     kraken_api_secret: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# IBKR live connection state — drives the one-click "log in at the gateway" UX.
+# `loginUrl` is derived from IBKR_GATEWAY_BASE_URL on the backend so the frontend
+# never hardcodes the gateway location. Carries no secrets.
+# --------------------------------------------------------------------------- #
+IbkrAuthState = Literal["authenticated", "unauthenticated", "unreachable"]
+
+
+class IbkrAuthResponse(CamelModel):
+    state: IbkrAuthState
+    login_url: str
+    detail: str
