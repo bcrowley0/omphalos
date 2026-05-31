@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from .adapters.base import RateLimited, SourceUnavailable
+from .adapters.base import RateLimited, SourceUnavailable, Unauthenticated
 
 logger = logging.getLogger("omphalos.http")
 
@@ -40,8 +40,15 @@ async def _request(
             "outbound source=%s method=%s url=%s status=%s ms=%d",
             source, method, url, resp.status_code, elapsed_ms,
         )
+        # Map every non-2xx to a canonical adapter exception HERE — the single
+        # outbound choke point — so a raw httpx error never escapes to a router
+        # and gets mislabelled "Unexpected source error" (CLAUDE.md rule #6).
         if resp.status_code == 429:
             raise RateLimited(f"{source} rate-limited (HTTP 429)")
+        if resp.status_code in (401, 403):
+            raise Unauthenticated(f"{source} requires authentication (HTTP {resp.status_code})")
+        if resp.status_code >= 400:
+            raise SourceUnavailable(f"{source} error (HTTP {resp.status_code})")
         return resp
     except httpx.HTTPError as exc:
         elapsed_ms = int((time.monotonic() - started) * 1000)
@@ -59,7 +66,6 @@ async def get_json(
     url: str, *, source: str, client: httpx.AsyncClient | None = None, **kwargs: Any
 ) -> Any:
     resp = await _request("GET", url, source=source, client=client, **kwargs)
-    resp.raise_for_status()
     return resp.json()
 
 
@@ -67,7 +73,6 @@ async def get_text(
     url: str, *, source: str, client: httpx.AsyncClient | None = None, **kwargs: Any
 ) -> str:
     resp = await _request("GET", url, source=source, client=client, **kwargs)
-    resp.raise_for_status()
     return resp.text
 
 
@@ -80,5 +85,4 @@ async def post_form(
     client: httpx.AsyncClient | None = None,
 ) -> Any:
     resp = await _request("POST", url, source=source, client=client, data=data, headers=headers or {})
-    resp.raise_for_status()
     return resp.json()

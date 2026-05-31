@@ -32,6 +32,17 @@ async def test_up_but_not_logged_in_maps_to_unauthenticated():
         await _adapter(handler)._ensure_session()
 
 
+async def test_tickle_401_maps_to_unauthenticated():
+    # An unauthenticated gateway answers /tickle with 401 (it proxies the call
+    # upstream). That must surface as the "log in at the gateway" state, never a
+    # raw httpx error that the router mislabels "Unexpected source error".
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, text="unauthorized")
+
+    with pytest.raises(Unauthenticated):
+        await _adapter(handler)._ensure_session()
+
+
 async def test_authenticated_session_passes():
     def handler(req: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"iserver": {"authStatus": {"authenticated": True}}})

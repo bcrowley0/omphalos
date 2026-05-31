@@ -190,6 +190,12 @@ class IbkrAdapter(Adapter):
         """
         try:
             data = await self._post("/tickle")  # SourceUnavailable on connect error
+        except Unauthenticated as exc:
+            # An unauthenticated gateway answers /tickle with 401 (it proxies the
+            # call upstream) — surface the actionable "log in" state, not a raw error.
+            raise Unauthenticated(
+                "Log in at the IBKR gateway in your browser, then retry."
+            ) from exc
         except SourceUnavailable as exc:
             raise SourceUnavailable(
                 "IBKR gateway is not reachable — is the Client Portal Gateway running?"
