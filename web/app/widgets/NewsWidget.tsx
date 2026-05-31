@@ -6,14 +6,7 @@ import { addFeed, loadFeeds, loadNews } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import { terminalStore } from "../lib/store";
 import type { FeedInfo } from "../lib/api/client";
-
-function timeAgo(ts: number | null | undefined): string {
-  if (!ts) return "";
-  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  return hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`;
-}
+import { timeAgo } from "../lib/format";
 
 // Feed chips + add-feed form. Clicking a feed runs `news <NAME>` (opens/focuses
 // that feed's tab); adding a feed POSTs then opens it.
@@ -64,27 +57,23 @@ function FeedBar({ active }: { active?: string }) {
   return (
     <div style={{ marginBottom: "1rem" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.6rem" }}>
-        {(() => {
-          const allActive = !active; // the default News tab (no feed) = aggregate of all sources
-          return (
-            <button
-              onClick={() => terminalStore.dispatch("news")}
-              title="All sources, newest first"
-              style={{
-                background: allActive ? "var(--panel)" : "transparent",
-                color: allActive ? "var(--accent)" : "var(--muted)",
-                border: "1px solid var(--border)",
-                borderRadius: 999,
-                padding: "0.2rem 0.7rem",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                fontSize: "0.78rem",
-              }}
-            >
-              All
-            </button>
-          );
-        })()}
+        {/* the default News tab (no feed) = aggregate of all sources */}
+        <button
+          onClick={() => terminalStore.dispatch("news")}
+          title="All sources, newest first"
+          style={{
+            background: !active ? "var(--panel)" : "transparent",
+            color: !active ? "var(--accent)" : "var(--muted)",
+            border: "1px solid var(--border)",
+            borderRadius: 999,
+            padding: "0.2rem 0.7rem",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontSize: "0.78rem",
+          }}
+        >
+          All
+        </button>
         {feeds.map((f) => {
           const isActive = (active ?? "").toUpperCase() === f.name.toUpperCase();
           return (
@@ -169,7 +158,7 @@ export default function NewsWidget({ feed }: { feed?: string }) {
           ) : (
             <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
               {data.items.map((item, i) => (
-                <li key={`${item.url}-${i}`} style={{ borderTop: i ? "1px solid var(--border)" : "none", paddingTop: i ? "0.9rem" : 0 }}>
+                <li key={item.url} style={{ borderTop: i ? "1px solid var(--border)" : "none", paddingTop: i ? "0.9rem" : 0 }}>
                   {/* Headlines link OUT to the browser; no article bodies are fetched. */}
                   <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1rem" }}>
                     {item.title}
