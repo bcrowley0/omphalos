@@ -39,13 +39,13 @@ export default function PortfolioWidget() {
                   </thead>
                   <tbody>
                     {data.positions.map((p) => (
-                      <tr key={`${p.source}:${p.symbol}`} style={{ borderTop: "1px solid var(--border)" }}>
+                      <tr key={`${p.source}:${p.symbol}:${p.side ?? ""}`} style={{ borderTop: "1px solid var(--border)" }}>
                         <td style={tdl}>{p.symbol}</td>
                         <td style={tdl}>{p.side ?? "—"}</td>
                         <td style={td}>{fmt(p.qty, 0)}</td>
                         <td style={td}>{fmt(p.avgCost)}</td>
                         <td style={td}>{fmt(p.marketValue)}</td>
-                        <td style={td}>{p.marginUsed == null ? "—" : fmt(p.marginUsed)}</td>
+                        <td style={td}>{fmt(p.marginUsed)}</td>
                         <td style={{ ...td, color: signColor(p.unrealizedPnl) }}>{fmt(p.unrealizedPnl)}</td>
                       </tr>
                     ))}
@@ -93,7 +93,7 @@ export default function PortfolioWidget() {
                       ["Equity", fmt(data.marginSummary.equity)],
                       ["Used Margin", fmt(data.marginSummary.usedMargin)],
                       ["Free Margin", fmt(data.marginSummary.freeMargin)],
-                      ["Margin Level %", data.marginSummary.marginLevel == null ? "—" : fmt(data.marginSummary.marginLevel)],
+                      ["Margin Level %", fmt(data.marginSummary.marginLevel)],
                       ["Unrealized P&L", fmt(data.marginSummary.unrealizedPnl)],
                       ["Cost Basis", fmt(data.marginSummary.costBasis)],
                       ["Valuation", fmt(data.marginSummary.valuation)],
