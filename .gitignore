@@ -30,5 +30,3 @@ dev.sh
 go.sh
 dev-servers.log
 .worktrees/
-go.sh
-dev-servers.log
