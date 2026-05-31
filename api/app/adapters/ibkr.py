@@ -52,7 +52,7 @@ def _num(value: Any) -> float | None:
     return float(m.group()) if m else None
 
 
-def pick_primary_conid(results: list[dict[str, Any]], symbol: str) -> str | None:
+def pick_primary_conid(results: list[dict[str, Any]]) -> str | None:
     """Deterministic disambiguation among /iserver/secdef/search results.
 
     Rule (documented): prefer a contract exposing a STK section; among those
@@ -211,7 +211,7 @@ class IbkrAdapter(Adapter):
         if symbol in self._conids:
             return self._conids[symbol]
         results = await self._get("/iserver/secdef/search", params={"symbol": symbol})
-        conid = pick_primary_conid(results if isinstance(results, list) else [], symbol)
+        conid = pick_primary_conid(results if isinstance(results, list) else [])
         if conid is None:
             raise SourceUnavailable(f"IBKR: no contract found for {symbol}")
         self._conids[symbol] = conid

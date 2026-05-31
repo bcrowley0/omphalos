@@ -9,7 +9,7 @@ def test_pick_primary_conid_prefers_us_stk_listing():
         {"conid": 265598, "description": "NASDAQ", "sections": [{"secType": "STK"}]},
         {"conid": 999, "description": "LSE", "sections": [{"secType": "OPT"}]},
     ]
-    assert pick_primary_conid(results, "AAPL") == "265598"
+    assert pick_primary_conid(results) == "265598"
 
 
 def test_pick_primary_conid_falls_back_to_first_stk():
@@ -17,11 +17,11 @@ def test_pick_primary_conid_falls_back_to_first_stk():
         {"conid": 5, "description": "OPT-ONLY", "sections": [{"secType": "OPT"}]},
         {"conid": 7, "description": "SOMEEXCH", "sections": [{"secType": "STK"}]},
     ]
-    assert pick_primary_conid(results, "X") == "7"
+    assert pick_primary_conid(results) == "7"
 
 
 def test_pick_primary_conid_none_when_empty():
-    assert pick_primary_conid([], "X") is None
+    assert pick_primary_conid([]) is None
 
 
 def test_parse_snapshot_maps_field_codes():
