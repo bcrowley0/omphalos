@@ -186,6 +186,27 @@ export interface components {
             /** Url */
             url: string;
         };
+        /**
+         * AsOfCurve
+         * @description A yield curve as of one observation date (latest, a relative lookback, or
+         *     an exact calendar date). `obs_date` is the most recent per-tenor observation
+         *     actually used; `requested_date` is the target as-of date.
+         */
+        AsOfCurve: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Requesteddate */
+            requestedDate: number;
+            /** Obsdate */
+            obsDate: number;
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["YieldPoint"][];
+        };
         /** Balance */
         Balance: {
             /** Asset */
@@ -478,10 +499,10 @@ export interface components {
             /** Message */
             message?: string | null;
             /**
-             * Points
+             * Curves
              * @default []
              */
-            points: components["schemas"]["YieldPoint"][];
+            curves: components["schemas"]["AsOfCurve"][];
         };
         /** YieldPoint */
         YieldPoint: {
@@ -641,7 +662,9 @@ export interface operations {
     };
     yield_curve_yield_get: {
         parameters: {
-            query?: never;
+            query?: {
+                asof?: string[];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -655,6 +678,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["YieldCurveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
