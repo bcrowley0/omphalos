@@ -12,6 +12,17 @@ from app.adapters.fred import (
     FredAdapter,
 )
 from app.models import AsOfCurve, YieldPoint, YieldCurveResponse, SourceStatus
+from app.routers import parse_asof_dates
+
+
+def test_parse_asof_dates_valid_and_invalid():
+    dates, error = parse_asof_dates(["2024-06-06", "2024-01-15"])
+    assert error is None
+    assert [d.isoformat() for d in dates] == ["2024-06-06", "2024-01-15"]
+
+    dates, error = parse_asof_dates(["not-a-date"])
+    assert dates == []
+    assert error is not None and "not-a-date" in error
 
 
 def test_fred_date_to_ms_is_utc_midnight():

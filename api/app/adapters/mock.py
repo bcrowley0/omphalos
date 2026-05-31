@@ -10,8 +10,9 @@ from __future__ import annotations
 import hashlib
 import math
 import time
+from datetime import date
 
-from ..models import Balance, Candle, NewsItem, Position, Quote, YieldPoint
+from ..models import AsOfCurve, Balance, Candle, NewsItem, Position, Quote, YieldPoint
 from .base import Adapter
 
 _DAY_MS = 86_400_000
@@ -118,15 +119,14 @@ class MockAdapter(Adapter):
         ]
 
     # -- yield curve ------------------------------------------------------- #
-    async def get_yield_curve(self) -> list[YieldPoint]:
+    async def get_yield_curve(self, asof_dates: list[date]) -> list[AsOfCurve]:
         # (label, years) for the canonical Treasury tenor set
         tenors = [
             ("1M", 1 / 12), ("3M", 0.25), ("6M", 0.5), ("1Y", 1.0), ("2Y", 2.0),
             ("3Y", 3.0), ("5Y", 5.0), ("7Y", 7.0), ("10Y", 10.0), ("20Y", 20.0), ("30Y", 30.0),
         ]
         obs = _now_ms()
-        # gentle upward-sloping mock curve
-        return [
+        points = [
             YieldPoint(
                 tenor_label=label,
                 tenor_years=round(years, 4),
@@ -135,3 +135,4 @@ class MockAdapter(Adapter):
             )
             for label, years in tenors
         ]
+        return [AsOfCurve(key="current", label="Today", requested_date=obs, obs_date=obs, points=points)]

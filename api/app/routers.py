@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import date
 
 from fastapi import APIRouter, Query
 
@@ -66,6 +67,18 @@ def _status_from_exc(exc: Exception) -> tuple[SourceStatus, str]:
         return SourceStatus.NOT_IMPLEMENTED, str(exc)
     logger.exception("unexpected adapter error")
     return SourceStatus.SOURCE_DOWN, "Unexpected source error."
+
+
+def parse_asof_dates(asof: list[str]) -> tuple[list[date], str | None]:
+    """Pure: parse repeated `asof=YYYY-MM-DD` query params. Returns (dates, error);
+    on the first malformed value, returns ([], message)."""
+    out: list[date] = []
+    for raw in asof:
+        try:
+            out.append(date.fromisoformat(raw))
+        except ValueError:
+            return [], f"invalid asof date: {raw!r} (expected YYYY-MM-DD)"
+    return out, None
 
 
 # --------------------------------------------------------------------------- #
@@ -183,17 +196,20 @@ async def portfolio() -> PortfolioResponse:
 # yield curve → FRED
 # --------------------------------------------------------------------------- #
 @router.get("/yield", response_model=YieldCurveResponse, tags=["macro"])
-async def yield_curve() -> YieldCurveResponse:
+async def yield_curve(asof: list[str] = Query(default=[])) -> YieldCurveResponse:
     adapter = _adapter("fred")
     if adapter is None:
         return YieldCurveResponse(status=SourceStatus.SOURCE_DOWN, message="fred integration not available.")
+    dates, error = parse_asof_dates(asof)
+    if error is not None:
+        return YieldCurveResponse(status=SourceStatus.EMPTY, message=error)
     try:
-        points = await adapter.get_yield_curve()
+        curves = await adapter.get_yield_curve(dates)
     except Exception as exc:  # noqa: BLE001
         status, msg = _status_from_exc(exc)
         return YieldCurveResponse(status=status, message=msg)
-    status = SourceStatus.OK if points else SourceStatus.EMPTY
-    return YieldCurveResponse(status=status, points=points)
+    status = SourceStatus.OK if any(c.points for c in curves) else SourceStatus.EMPTY
+    return YieldCurveResponse(status=status, curves=curves)
 
 
 # --------------------------------------------------------------------------- #
