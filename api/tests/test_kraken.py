@@ -123,6 +123,19 @@ def test_parse_open_positions_empty_result_is_empty_list():
     assert parse_open_positions({"error": [], "result": {}}) == []
 
 
+def test_parse_open_positions_zero_vol_avg_cost_is_zero():
+    payload = {
+        "error": [],
+        "result": {
+            "TX1": {"pair": "XXBTZUSD", "type": "buy", "vol": "0", "cost": "0.0",
+                    "margin": "0.0", "value": "0.0", "net": "0.0"},
+        },
+    }
+    positions = parse_open_positions(payload)
+    assert len(positions) == 1
+    assert positions[0].avg_cost == 0.0
+
+
 def test_parse_trade_balance_maps_field_codes():
     payload = {
         "error": [],
