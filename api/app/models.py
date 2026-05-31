@@ -267,3 +267,11 @@ class SourceConnection(CamelModel):
 
 class StatusResponse(CamelModel):
     sources: list[SourceConnection] = []
+
+
+# Local-first key entry (localhost only). Only non-empty fields are written to
+# api/.env. The response is plain StatusResponse — key values are never echoed.
+class KeysUpdateRequest(CamelModel):
+    fred_api_key: str | None = None
+    kraken_api_key: str | None = None
+    kraken_api_secret: str | None = None
