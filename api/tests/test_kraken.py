@@ -2,7 +2,30 @@
 
 from app.adapters.kraken import krakenize_pair, parse_ohlc, parse_ticker
 from app.adapters.base import RateLimited, SourceUnavailable
+from app.models import MarginSummary, Position, PortfolioResponse
 import pytest
+
+
+def test_position_margin_fields_default_to_none():
+    p = Position(symbol="AAPL", qty=1, avg_cost=1, market_value=1, unrealized_pnl=0, source="ibkr")
+    assert p.side is None
+    assert p.margin_used is None
+
+
+def test_margin_summary_serializes_camelcase():
+    ms = MarginSummary(
+        equity=1000.0, used_margin=200.0, free_margin=800.0, margin_level=500.0,
+        unrealized_pnl=10.0, cost_basis=190.0, valuation=200.0,
+    )
+    dumped = ms.model_dump(by_alias=True)
+    assert dumped["usedMargin"] == 200.0
+    assert dumped["marginLevel"] == 500.0
+    assert dumped["source"] == "kraken"
+
+
+def test_portfolio_response_has_margin_summary_default_none():
+    r = PortfolioResponse(status="ok")
+    assert r.margin_summary is None
 
 
 def test_krakenize_maps_btc_to_xbt():
