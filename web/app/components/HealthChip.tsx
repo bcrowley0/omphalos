@@ -10,11 +10,13 @@ export default function HealthChip() {
   const load = useCallback(() => loadHealth(), []);
   const { state, refresh } = useResource(load);
 
+  // When the backend is healthy, show just the green light (no label); only the
+  // not-good states carry descriptive text.
   const { color, label } =
     state.kind === "loading"
       ? { color: "var(--muted)", label: "backend …" }
       : state.kind === "ok"
-        ? { color: "var(--accent)", label: `backend ${state.data.status}` }
+        ? { color: "var(--accent)", label: "" }
         : { color: "var(--error)", label: "backend down" };
 
   return (

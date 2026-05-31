@@ -28,8 +28,7 @@ export default function Terminal() {
         </div>
         {/* center: brand */}
         <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-          <strong>Omphalos</strong>{" "}
-          <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>finance terminal</span>
+          <strong>Omphalos</strong>
         </div>
         {/* right: backend health */}
         <div style={{ justifySelf: "end" }}>
