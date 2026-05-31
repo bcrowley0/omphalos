@@ -6,7 +6,7 @@ import { loadPeopleFeed } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import { useTerminal } from "../lib/useTerminal";
 import { terminalStore } from "../lib/store";
-import { timeAgo } from "../lib/format";
+import { CuratedToggle, FeedItemList } from "../components/FeedItemList";
 
 export default function PersonFeedWidget({ person }: { person: string }) {
   const { following } = useTerminal();
@@ -48,18 +48,7 @@ export default function PersonFeedWidget({ person }: { person: string }) {
           const hidden = data.items.length - data.items.filter((i) => i.primary && i.relevant).length;
           return (
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.8rem", fontSize: "0.78rem", color: "var(--muted)" }}>
-                <button onClick={() => setCurated((v) => !v)} title="Primary/official sources whose headline is about this person; duplicate stories collapsed"
-                  style={{ background: curated ? "var(--panel)" : "transparent", color: curated ? "var(--accent)" : "var(--muted)", border: "1px solid var(--border)", borderRadius: 999, padding: "0.2rem 0.7rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem" }}>
-                  {curated ? "✓ primary & on-topic" : "primary & on-topic"}
-                </button>
-                {curated && hidden > 0 && (
-                  <button onClick={() => setCurated(false)}
-                    style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontFamily: "inherit", fontSize: "0.78rem", textDecoration: "underline" }}>
-                    show all ({hidden} more)
-                  </button>
-                )}
-              </div>
+              <CuratedToggle curated={curated} hidden={hidden} onToggle={() => setCurated((v) => !v)} onShowAll={() => setCurated(false)} />
               {items.length === 0 ? (
                 <p style={{ color: "var(--muted)" }}>
                   {curated && data.items.length > 0
@@ -67,23 +56,7 @@ export default function PersonFeedWidget({ person }: { person: string }) {
                     : `No recent items for ${person}.`}
                 </p>
               ) : (
-                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-                  {items.map((item, i) => {
-                    const isNew = (item.publishedTs ?? 0) > seenAtMount;
-                    return (
-                      <li key={item.url} style={{ borderTop: i ? "1px solid var(--border)" : "none", paddingTop: i ? "0.9rem" : 0 }}>
-                        <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1rem" }}>
-                          {isNew && <span style={{ color: "var(--accent)", marginRight: "0.4rem" }}>●</span>}
-                          {item.title}
-                        </a>
-                        {item.summary && <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>{item.summary}</p>}
-                        <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
-                          {item.publisher ?? item.source}{item.primary ? "" : " · secondary"} · {timeAgo(item.publishedTs)}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <FeedItemList items={items} isNew={(item) => (item.publishedTs ?? 0) > seenAtMount} />
               )}
             </div>
           );
