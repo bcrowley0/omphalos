@@ -6,6 +6,7 @@ from app.adapters.kraken import (
     parse_ohlc,
     parse_open_positions,
     parse_ticker,
+    parse_trade_balance,
 )
 from app.adapters.base import RateLimited, SourceUnavailable
 from app.models import MarginSummary, Position, PortfolioResponse
@@ -120,6 +121,30 @@ def test_parse_open_positions_maps_fields_and_side():
 
 def test_parse_open_positions_empty_result_is_empty_list():
     assert parse_open_positions({"error": [], "result": {}}) == []
+
+
+def test_parse_trade_balance_maps_field_codes():
+    payload = {
+        "error": [],
+        "result": {
+            "e": "10000.0", "m": "2000.0", "mf": "8000.0", "ml": "500.0",
+            "n": "150.0", "c": "1900.0", "v": "2050.0",
+        },
+    }
+    ms = parse_trade_balance(payload)
+    assert ms.equity == 10000.0
+    assert ms.used_margin == 2000.0
+    assert ms.free_margin == 8000.0
+    assert ms.margin_level == 500.0
+    assert ms.unrealized_pnl == 150.0
+    assert ms.cost_basis == 1900.0
+    assert ms.valuation == 2050.0
+    assert ms.source == "kraken"
+
+
+def test_parse_trade_balance_missing_ml_is_none():
+    payload = {"error": [], "result": {"e": "100.0", "m": "0.0", "mf": "100.0", "n": "0.0", "c": "0.0", "v": "0.0"}}
+    assert parse_trade_balance(payload).margin_level is None
 
 
 def test_parse_errors_are_mapped():

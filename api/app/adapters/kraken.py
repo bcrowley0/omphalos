@@ -128,6 +128,26 @@ def parse_open_positions(payload: dict[str, Any]) -> list[Position]:
     return out
 
 
+def parse_trade_balance(payload: dict[str, Any]) -> MarginSummary:
+    """Pure: Kraken TradeBalance payload -> canonical MarginSummary.
+
+    Field codes: e=equity, m=used margin, mf=free margin, ml=margin level %
+    (absent when no open positions), n=unrealized P&L, c=cost basis, v=valuation.
+    """
+    r = payload.get("result") or {}
+    ml = r.get("ml")
+    return MarginSummary(
+        equity=float(r.get("e", 0) or 0),
+        used_margin=float(r.get("m", 0) or 0),
+        free_margin=float(r.get("mf", 0) or 0),
+        margin_level=float(ml) if ml is not None else None,
+        unrealized_pnl=float(r.get("n", 0) or 0),
+        cost_basis=float(r.get("c", 0) or 0),
+        valuation=float(r.get("v", 0) or 0),
+        source="kraken",
+    )
+
+
 def krakenize_pair(pair: str) -> str:
     """`BTC/USD` -> `XBTUSD` (Kraken altname). Pure/testable."""
     base, _, quote = pair.upper().partition("/")
