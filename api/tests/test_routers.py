@@ -10,12 +10,12 @@ client = TestClient(app)
 
 
 def test_chart_rejects_unknown_interval():
-    r = client.get("/chart/AAPL", params={"interval": "bogus"})
+    r = client.get("/chart", params={"symbol": "AAPL", "interval": "bogus"})
     assert r.status_code == 422
 
 
 def test_chart_rejects_unknown_span():
-    r = client.get("/chart/AAPL", params={"span": "10Y"})
+    r = client.get("/chart", params={"symbol": "AAPL", "span": "10Y"})
     assert r.status_code == 422
 
 
@@ -45,7 +45,7 @@ def test_chart_echoes_resolved_interval_and_span():
     ibkr._conids.clear()
     ibkr._primed = False
 
-    r = client.get("/chart/AAPL", params={"interval": "4h", "span": "1Y"})
+    r = client.get("/chart", params={"symbol": "AAPL", "interval": "4h", "span": "1Y"})
     assert r.status_code == 200
     body = r.json()
     assert body["interval"] == "4h"

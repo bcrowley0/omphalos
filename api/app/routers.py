@@ -8,7 +8,6 @@ seeing an unhandled crash (CLAUDE.md hard rule #6).
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import date
 
@@ -29,7 +28,6 @@ from .models import (
     Balance,
     CalendarResponse,
     CandlesResponse,
-    CryptoResponse,
     FeedError,
     FeedInfo,
     FeedListResponse,
@@ -46,7 +44,7 @@ from .models import (
     SourceStatus,
     YieldCurveResponse,
 )
-from .routing import source_for_symbol
+from .symbols import resolve
 
 logger = logging.getLogger("omphalos.routers")
 
@@ -84,84 +82,52 @@ def parse_asof_dates(asof: list[str]) -> tuple[list[date], str | None]:
 
 
 # --------------------------------------------------------------------------- #
-# chart / quote (equities → IBKR; plain tickers only)
+# chart / quote — symbol resolved to a broker by the name-linking resolver.
+# Symbol is a query param so a crypto pair's "/" passes through safely.
 # --------------------------------------------------------------------------- #
-@router.get("/chart/{symbol}", response_model=CandlesResponse, tags=["market"])
+@router.get("/chart", response_model=CandlesResponse, tags=["market"])
 async def chart(
-    symbol: str, interval: Interval = Interval.H1, span: Span = Span.M1
+    symbol: str = Query(...), interval: Interval = Interval.H1, span: Span = Span.M1
 ) -> CandlesResponse:
-    symbol = symbol.upper()
-    source = source_for_symbol(symbol)
-    adapter = _adapter(source)
+    r = resolve(symbol)
+    adapter = _adapter(r.source)
     if adapter is None:
         return CandlesResponse(
             status=SourceStatus.SOURCE_DOWN,
-            message=f"{source} integration not available.",
-            symbol=symbol,
-            source=source,
+            message=f"{r.source} integration not available.",
+            symbol=r.display,
+            source=r.source,
             interval=interval,
             span=span,
         )
     try:
-        candles = await adapter.get_candles(symbol, interval=interval, span=span)
+        candles = await adapter.get_candles(r.symbol, interval=interval, span=span)
     except Exception as exc:  # noqa: BLE001 - mapped to a UI state, never crashes
         status, msg = _status_from_exc(exc)
         return CandlesResponse(
-            status=status, message=msg, symbol=symbol, source=source, interval=interval, span=span
+            status=status, message=msg, symbol=r.display, source=r.source, interval=interval, span=span
         )
     status = SourceStatus.OK if candles else SourceStatus.EMPTY
     return CandlesResponse(
-        status=status, symbol=symbol, source=source, candles=candles, interval=interval, span=span
+        status=status, symbol=r.display, source=r.source, candles=candles, interval=interval, span=span
     )
 
 
-@router.get("/quote/{symbol}", response_model=QuoteResponse, tags=["market"])
-async def quote(symbol: str) -> QuoteResponse:
-    symbol = symbol.upper()
-    source = source_for_symbol(symbol)
-    adapter = _adapter(source)
+@router.get("/quote", response_model=QuoteResponse, tags=["market"])
+async def quote(symbol: str = Query(...)) -> QuoteResponse:
+    r = resolve(symbol)
+    adapter = _adapter(r.source)
     if adapter is None:
-        return QuoteResponse(status=SourceStatus.SOURCE_DOWN, message=f"{source} integration not available.")
+        return QuoteResponse(
+            status=SourceStatus.SOURCE_DOWN,
+            message=f"{r.source} integration not available.",
+        )
     try:
-        q: Quote = await adapter.get_quote(symbol)
+        q: Quote = await adapter.get_quote(r.symbol)
     except Exception as exc:  # noqa: BLE001
         status, msg = _status_from_exc(exc)
         return QuoteResponse(status=status, message=msg)
     return QuoteResponse(status=SourceStatus.OK, quote=q)
-
-
-# --------------------------------------------------------------------------- #
-# crypto (ticker + chart for a pair) → Kraken
-# --------------------------------------------------------------------------- #
-@router.get("/crypto/{base}/{quote_ccy}", response_model=CryptoResponse, tags=["market"])
-async def crypto(
-    base: str, quote_ccy: str, interval: Interval = Interval.H1, span: Span = Span.M1
-) -> CryptoResponse:
-    pair = f"{base.upper()}/{quote_ccy.upper()}"
-    source = "kraken"
-    adapter = _adapter(source)
-    if adapter is None:
-        return CryptoResponse(
-            status=SourceStatus.SOURCE_DOWN,
-            message="kraken integration not available.",
-            pair=pair,
-            source=source,
-            interval=interval,
-            span=span,
-        )
-    try:
-        q, candles = await asyncio.gather(
-            adapter.get_quote(pair), adapter.get_candles(pair, interval=interval, span=span)
-        )
-    except Exception as exc:  # noqa: BLE001
-        status, msg = _status_from_exc(exc)
-        return CryptoResponse(
-            status=status, message=msg, pair=pair, source=source, interval=interval, span=span
-        )
-    status = SourceStatus.OK if candles else SourceStatus.EMPTY
-    return CryptoResponse(
-        status=status, pair=pair, source=source, quote=q, candles=candles, interval=interval, span=span
-    )
 
 
 # --------------------------------------------------------------------------- #

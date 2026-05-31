@@ -175,17 +175,6 @@ class QuoteResponse(CamelModel):
     quote: Quote | None = None
 
 
-class CryptoResponse(CamelModel):
-    status: SourceStatus
-    message: str | None = None
-    pair: str
-    source: str
-    quote: Quote | None = None
-    candles: list[Candle] = []
-    interval: Interval = Interval.H1
-    span: Span = Span.M1
-
-
 class PortfolioResponse(CamelModel):
     status: SourceStatus
     message: str | None = None

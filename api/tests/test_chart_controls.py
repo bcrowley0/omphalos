@@ -10,7 +10,6 @@ from app.models import (
     INTERVAL_MS,
     SPAN_MS,
     CandlesResponse,
-    CryptoResponse,
     Interval,
     Span,
     SourceStatus,
@@ -43,13 +42,6 @@ def test_candles_response_echoes_interval_and_span_in_camelcase():
     dumped = resp.model_dump(by_alias=True)
     assert dumped["interval"] == "4h"
     assert dumped["span"] == "1Y"
-
-
-def test_crypto_response_default_pair_is_coherent():
-    # The API fallback default pair must be a valid span/interval combo: 1M + 1h.
-    resp = CryptoResponse(status=SourceStatus.EMPTY, pair="BTC/USD", source="kraken")
-    assert resp.interval == Interval.H1
-    assert resp.span == Span.M1
 
 
 @pytest.mark.asyncio
