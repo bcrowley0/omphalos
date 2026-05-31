@@ -19,7 +19,7 @@ from typing import Any
 from ..cache import cache
 from ..config import get_settings
 from ..http import get_json, post_form
-from ..models import Balance, Candle, Interval, INTERVAL_MS, Quote, Span, SPAN_MS
+from ..models import Balance, Candle, Interval, INTERVAL_MS, MarginSummary, Position, Quote, Span, SPAN_MS
 from .base import Adapter, RateLimited, SourceUnavailable, Unauthenticated
 
 _API_ROOT = "https://api.kraken.com"
@@ -96,6 +96,32 @@ def parse_balances(payload: dict[str, Any]) -> list[Balance]:
                 asset=normalize_asset(code),
                 total=total,
                 available=max(0.0, total - hold),
+                source="kraken",
+            )
+        )
+    return out
+
+
+def parse_open_positions(payload: dict[str, Any]) -> list[Position]:
+    """Pure: Kraken OpenPositions payload (docalcs=true) -> canonical Positions.
+
+    Result is { txid: {pair, type, vol, cost, margin, value, net}, ... }.
+    `type` buy->long, sell->short. avg_cost is per-unit (cost/vol).
+    """
+    result = payload.get("result") or {}
+    out: list[Position] = []
+    for info in result.values():
+        vol = float(info.get("vol", 0) or 0)
+        cost = float(info.get("cost", 0) or 0)
+        out.append(
+            Position(
+                symbol=normalize_pair(str(info.get("pair", ""))),
+                side="long" if info.get("type") == "buy" else "short",
+                qty=vol,
+                avg_cost=(cost / vol) if vol else 0.0,
+                market_value=float(info.get("value", 0) or 0),
+                unrealized_pnl=float(info.get("net", 0) or 0),
+                margin_used=float(info.get("margin", 0) or 0),
                 source="kraken",
             )
         )

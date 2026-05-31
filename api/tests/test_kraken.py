@@ -1,6 +1,12 @@
 """Unit tests for Kraken normalization (pure functions, no network)."""
 
-from app.adapters.kraken import krakenize_pair, normalize_pair, parse_ohlc, parse_ticker
+from app.adapters.kraken import (
+    krakenize_pair,
+    normalize_pair,
+    parse_ohlc,
+    parse_open_positions,
+    parse_ticker,
+)
 from app.adapters.base import RateLimited, SourceUnavailable
 from app.models import MarginSummary, Position, PortfolioResponse
 import pytest
@@ -83,6 +89,37 @@ def test_normalize_pair_modern_codes():
 
 def test_normalize_pair_unmappable_falls_back_to_raw():
     assert normalize_pair("WEIRDXYZ") == "WEIRDXYZ"
+
+
+def test_parse_open_positions_maps_fields_and_side():
+    payload = {
+        "error": [],
+        "result": {
+            "TX1": {
+                "pair": "XXBTZUSD", "type": "buy", "vol": "0.5",
+                "cost": "20000.0", "margin": "4000.0", "value": "21000.0", "net": "1000.0",
+            },
+            "TX2": {
+                "pair": "XETHZUSD", "type": "sell", "vol": "2.0",
+                "cost": "6000.0", "margin": "1200.0", "value": "5800.0", "net": "200.0",
+            },
+        },
+    }
+    by_symbol = {p.symbol: p for p in parse_open_positions(payload)}
+    assert set(by_symbol) == {"BTC/USD", "ETH/USD"}
+    btc = by_symbol["BTC/USD"]
+    assert btc.side == "long"
+    assert btc.qty == 0.5
+    assert btc.avg_cost == 40000.0  # cost / vol
+    assert btc.market_value == 21000.0
+    assert btc.unrealized_pnl == 1000.0
+    assert btc.margin_used == 4000.0
+    assert btc.source == "kraken"
+    assert by_symbol["ETH/USD"].side == "short"
+
+
+def test_parse_open_positions_empty_result_is_empty_list():
+    assert parse_open_positions({"error": [], "result": {}}) == []
 
 
 def test_parse_errors_are_mapped():
