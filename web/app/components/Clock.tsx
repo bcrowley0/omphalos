@@ -7,6 +7,10 @@ import { useEffect, useState } from "react";
 export default function Clock() {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
+    // Client-only mount init: the first paint is null (above) to avoid an
+    // SSR/client hydration mismatch, so seeding the time here is intentional —
+    // the lint rule can't see past that, mirroring the suppression in useResource.ts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
