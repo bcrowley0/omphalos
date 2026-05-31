@@ -6,6 +6,8 @@ import { loadPortfolio } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import { useAutoRefreshToggle } from "../lib/useAutoRefreshToggle";
 import { autoRefreshMsFor, statusIsHealthy } from "../lib/autoRefresh";
+import { useIbkrAuth } from "../components/IbkrAuthProvider";
+import { IbkrLoginButton } from "../components/IbkrLoginButton";
 
 const th: React.CSSProperties = { textAlign: "right", color: "var(--muted)", fontWeight: 400, padding: "0.3rem 0.6rem" };
 const td: React.CSSProperties = { textAlign: "right", padding: "0.3rem 0.6rem" };
@@ -21,6 +23,14 @@ export default function PortfolioWidget({ tabId }: { tabId: string }) {
     isHealthy: statusIsHealthy,
     onAutoDisabled,
   });
+  const ibkr = useIbkrAuth();
+  // The portfolio merges IBKR positions + Kraken balances; only offer the gateway
+  // login when the unauthenticated state actually came from IBKR (its message is
+  // prefixed "positions: …" and names the IBKR gateway).
+  const ibkrNeedsLogin =
+    state.kind === "ok" &&
+    state.data.status === "unauthenticated" &&
+    Boolean(state.data.message && state.data.message.includes("IBKR"));
 
   return (
     <WidgetFrame
@@ -124,6 +134,11 @@ export default function PortfolioWidget({ tabId }: { tabId: string }) {
           </div>
         )}
       </ResourceView>
+      {ibkrNeedsLogin && (
+        <div style={{ marginTop: "0.8rem" }}>
+          <IbkrLoginButton loginUrl={ibkr.loginUrl} />
+        </div>
+      )}
     </WidgetFrame>
   );
 }

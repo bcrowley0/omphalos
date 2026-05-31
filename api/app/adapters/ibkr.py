@@ -15,13 +15,14 @@ from __future__ import annotations
 
 import asyncio
 import re
+import urllib.parse
 from typing import Any
 
 import httpx
 
 from ..config import get_settings
 from ..http import get_json, post_form
-from ..models import Candle, Interval, Position, Quote, Span
+from ..models import Candle, IbkrAuthState, Interval, Position, Quote, Span
 from .base import Adapter, SourceUnavailable, Unauthenticated
 
 # Numeric snapshot field codes -> canonical names (IBKR Web API reference).
@@ -50,6 +51,15 @@ def _num(value: Any) -> float | None:
         return float(value)
     m = _NUM_RE.search(str(value).replace(",", ""))
     return float(m.group()) if m else None
+
+
+def gateway_login_url(base_url: str) -> str:
+    """Origin (scheme://host[:port]) of the gateway base URL — the page the user
+    logs in at. Strips the '/v1/api' path so config stays the single source of
+    truth for the gateway location. Pure/testable.
+    """
+    parts = urllib.parse.urlsplit(base_url)
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, "", "", ""))
 
 
 def pick_primary_conid(results: list[dict[str, Any]]) -> str | None:
@@ -206,6 +216,21 @@ class IbkrAdapter(Adapter):
             auth = (status or {}).get("authenticated")
         if not auth:
             raise Unauthenticated("Log in at the IBKR gateway in your browser, then retry.")
+
+    async def get_auth_state(self) -> IbkrAuthState:
+        """Probe the gateway and return one of the three connection states without
+        ever raising — backs the /ibkr/auth status endpoint (which has no error
+        handling of its own, so a raise here would be an unhandled 500). Reuses
+        _ensure_session's state machine: a not-logged-in gateway → "unauthenticated";
+        any other failure (unreachable, rate-limited, or unexpected) → "unreachable".
+        """
+        try:
+            await self._ensure_session()
+        except Unauthenticated:
+            return "unauthenticated"
+        except Exception:  # noqa: BLE001 - status probe must never raise (CLAUDE.md rule #6)
+            return "unreachable"
+        return "authenticated"
 
     async def _prime(self) -> None:
         # Market data often requires the accounts endpoint to be hit first.

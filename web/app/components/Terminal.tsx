@@ -6,6 +6,8 @@ import CommandBar from "./CommandBar";
 import HealthChip from "./HealthChip";
 import TabStrip from "./TabStrip";
 import WidgetHost from "./WidgetHost";
+import { IbkrAuthProvider } from "./IbkrAuthProvider";
+import IbkrAuthBanner from "./IbkrAuthBanner";
 import { useTerminal } from "../lib/useTerminal";
 import { applyAppSettings, loadAppSettings } from "../lib/appSettings";
 
@@ -19,50 +21,54 @@ export default function Terminal() {
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <header
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto 1fr",
-          alignItems: "center",
-          gap: "1rem",
-          padding: "0.6rem 1.25rem",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        {/* left: the command / search bar */}
-        <div style={{ minWidth: 0 }}>
-          <CommandBar />
-        </div>
-        {/* center: brand */}
-        <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-          <strong>Omphalos</strong>
-        </div>
-        {/* right: live clock + backend health */}
-        <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: "0.8rem" }}>
-          <Clock />
-          <HealthChip />
-        </div>
-      </header>
-
-      <TabStrip tabs={tabs} activeId={activeId} />
-
-      <div style={{ flex: 1, overflow: "auto" }}>
-        {active ? (
-          // key per tab → fresh widget instance + its own data fetch
-          <WidgetHost key={active.id} tab={active} />
-        ) : (
-          <div style={{ padding: "3rem 1.25rem", color: "var(--muted)" }}>
-            <p style={{ marginBottom: "0.5rem" }}>No widgets open.</p>
-            <p>
-              Type a command in the bar above to begin — e.g.{" "}
-              <code style={{ color: "var(--accent)" }}>chart AAPL</code>,{" "}
-              <code style={{ color: "var(--accent)" }}>chart BTC/USD</code>, or{" "}
-              <code style={{ color: "var(--accent)" }}>help</code>.
-            </p>
+    <IbkrAuthProvider>
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+        <header
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto 1fr",
+            alignItems: "center",
+            gap: "1rem",
+            padding: "0.6rem 1.25rem",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          {/* left: the command / search bar */}
+          <div style={{ minWidth: 0 }}>
+            <CommandBar />
           </div>
-        )}
+          {/* center: brand */}
+          <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+            <strong>Omphalos</strong>
+          </div>
+          {/* right: live clock + backend health */}
+          <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: "0.8rem" }}>
+            <Clock />
+            <HealthChip />
+          </div>
+        </header>
+
+        <IbkrAuthBanner />
+
+        <TabStrip tabs={tabs} activeId={activeId} />
+
+        <div style={{ flex: 1, overflow: "auto" }}>
+          {active ? (
+            // key per tab → fresh widget instance + its own data fetch
+            <WidgetHost key={active.id} tab={active} />
+          ) : (
+            <div style={{ padding: "3rem 1.25rem", color: "var(--muted)" }}>
+              <p style={{ marginBottom: "0.5rem" }}>No widgets open.</p>
+              <p>
+                Type a command in the bar above to begin — e.g.{" "}
+                <code style={{ color: "var(--accent)" }}>chart AAPL</code>,{" "}
+                <code style={{ color: "var(--accent)" }}>chart BTC/USD</code>, or{" "}
+                <code style={{ color: "var(--accent)" }}>help</code>.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </IbkrAuthProvider>
   );
 }
