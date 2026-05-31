@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ResourceView, WidgetFrame } from "../components/ui";
 import { loadPeopleFeed } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
@@ -16,13 +16,19 @@ export default function PersonFeedWidget({ person }: { person: string }) {
   const [feedUrl, setFeedUrl] = useState("");
   const [curated, setCurated] = useState(true);
 
-  const load = useCallback(async () => {
-    const r = await loadPeopleFeed([entry]);
-    terminalStore.markSeen(person);
-    return r;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  const load = useCallback(
+    () => loadPeopleFeed([entry]),
+    // `key` digests name+feeds — the real refetch trigger; `entry` is a fresh object
+    // each render, so we intentionally key on the digest.
+    [key], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const { state, refresh } = useResource(load);
+
+  // Mark this person seen for the view. Markers use the mount snapshot (seenAtMount),
+  // so this only advances the persisted "last seen" for next visit.
+  useEffect(() => {
+    terminalStore.markSeen(person);
+  }, [key, person]);
 
   const isFollowed = useMemo(() => following.some((p) => p.name === person), [following, person]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ResourceView, WidgetFrame } from "../components/ui";
 import { loadPeopleFeed } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
@@ -22,13 +22,19 @@ export default function FollowingWidget() {
   const [newName, setNewName] = useState("");
   const [curated, setCurated] = useState(true);
 
-  const load = useCallback(async () => {
-    const r = await loadPeopleFeed(following);
-    terminalStore.markSeen("*"); // mark seen after the fetch resolves
-    return r;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  const load = useCallback(
+    () => loadPeopleFeed(following),
+    // `key` digests every person's name+feeds — the real refetch trigger; `following`
+    // is a fresh array reference each render, so we intentionally key on the digest.
+    [key], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const { state, refresh } = useResource(load);
+
+  // Mark the roster seen for this view. Markers themselves use the mount snapshot
+  // (seenAtMount), so this only advances the persisted "last seen" for next visit.
+  useEffect(() => {
+    terminalStore.markSeen("*");
+  }, [key]);
 
   return (
     <WidgetFrame title="Following" onRefresh={refresh} busy={state.kind === "loading"}>
