@@ -1,14 +1,21 @@
 "use client";
 
+import { useEffect } from "react";
 import CommandBar from "./CommandBar";
 import HealthChip from "./HealthChip";
 import TabStrip from "./TabStrip";
 import WidgetHost from "./WidgetHost";
 import { useTerminal } from "../lib/useTerminal";
+import { applyAppSettings, loadAppSettings } from "../lib/appSettings";
 
 export default function Terminal() {
   const { tabs, activeId } = useTerminal();
   const active = tabs.find((t) => t.id === activeId) ?? null;
+
+  // Apply the persisted theme + text size app-wide on first paint.
+  useEffect(() => {
+    applyAppSettings(loadAppSettings());
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>

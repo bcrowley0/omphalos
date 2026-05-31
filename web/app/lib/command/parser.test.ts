@@ -20,6 +20,7 @@ describe("parseCommand", () => {
     expect(parseCommand("yield")).toEqual({ kind: "yield" });
     expect(parseCommand("cal")).toEqual({ kind: "cal" });
     expect(parseCommand("help")).toEqual({ kind: "help" });
+    expect(parseCommand("settings")).toEqual({ kind: "settings" });
   });
 
   it("parses `chart` with a slashed crypto pair (resolver routes it server-side)", () => {

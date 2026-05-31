@@ -13,6 +13,7 @@ export type Command =
   | { kind: "follow"; name: string }
   | { kind: "unfollow"; name: string }
   | { kind: "following" }
+  | { kind: "settings" }
   | { kind: "error"; input: string; message: string };
 
 // The widget a tab renders.
@@ -26,7 +27,8 @@ export type WidgetKind =
   | "cal"
   | "help"
   | "following"
-  | "person";
+  | "person"
+  | "settings";
 
 // An open widget tab. `id` is a stable dedup key: opening a command whose id
 // already exists focuses that tab instead of creating a duplicate.

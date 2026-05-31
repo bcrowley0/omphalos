@@ -42,6 +42,8 @@ export function parseCommand(input: string): Command {
     }
     case "following":
       return { kind: "following" };
+    case "settings":
+      return { kind: "settings" };
     default:
       return err(input, `Unknown command: "${verb}". Type "help" for the command list.`);
   }
