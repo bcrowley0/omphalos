@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Clock from "./Clock";
 import CommandBar from "./CommandBar";
 import HealthChip from "./HealthChip";
 import TabStrip from "./TabStrip";
@@ -37,8 +38,9 @@ export default function Terminal() {
         <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
           <strong>Omphalos</strong>
         </div>
-        {/* right: backend health */}
-        <div style={{ justifySelf: "end" }}>
+        {/* right: live clock + backend health */}
+        <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: "0.8rem" }}>
+          <Clock />
           <HealthChip />
         </div>
       </header>
