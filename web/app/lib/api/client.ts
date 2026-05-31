@@ -23,4 +23,3 @@ export type YieldPoint = Schemas["YieldPoint"];
 export type SourceStatus = Schemas["SourceStatus"];
 export type FeedInfo = Schemas["FeedInfo"];
 export type FollowItem = Schemas["FollowItem"];
-export type PeopleFeedResponse = Schemas["PeopleFeedResponse"];
