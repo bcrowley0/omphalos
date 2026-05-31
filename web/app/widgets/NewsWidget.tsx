@@ -156,20 +156,59 @@ export default function NewsWidget({ feed }: { feed?: string }) {
           data.items.length === 0 ? (
             <p style={{ color: "var(--muted)" }}>No headlines.</p>
           ) : (
-            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-              {data.items.map((item, i) => (
-                <li key={item.url} style={{ borderTop: i ? "1px solid var(--border)" : "none", paddingTop: i ? "0.9rem" : 0 }}>
-                  {/* Headlines link OUT to the browser; no article bodies are fetched. */}
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1rem" }}>
+            <div role="table" style={{ display: "flex", flexDirection: "column" }}>
+              <div
+                role="row"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 8rem 5rem",
+                  gap: "0.8rem",
+                  padding: "0 0 0.4rem",
+                  color: "var(--muted)",
+                  fontSize: "0.72rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                <span>Headline</span>
+                <span>Source</span>
+                <span style={{ textAlign: "right" }}>Time</span>
+              </div>
+              {data.items.map((item) => (
+                <div
+                  key={item.url}
+                  role="row"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 8rem 5rem",
+                    alignItems: "baseline",
+                    gap: "0.8rem",
+                    padding: "0.4rem 0",
+                    borderTop: "1px solid var(--border)",
+                  }}
+                >
+                  {/* One line; links OUT to the browser. Full headline + teaser on hover. */}
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={item.summary || item.title}
+                    style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.9rem" }}
+                  >
                     {item.title}
                   </a>
-                  {item.summary && <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>{item.summary}</p>}
-                  <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
-                    {item.feed} · {timeAgo(item.publishedTs)}
+                  <span
+                    title={item.feed}
+                    style={{ color: "var(--muted)", fontSize: "0.78rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
+                    {item.feed}
                   </span>
-                </li>
+                  <span style={{ color: "var(--muted)", fontSize: "0.78rem", textAlign: "right", whiteSpace: "nowrap" }}>
+                    {timeAgo(item.publishedTs)}
+                  </span>
+                </div>
               ))}
-            </ul>
+            </div>
           )
         }
       </ResourceView>
