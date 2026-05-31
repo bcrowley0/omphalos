@@ -373,6 +373,28 @@ export interface components {
             /** Krakenapisecret */
             krakenApiSecret?: string | null;
         };
+        /** MarginSummary */
+        MarginSummary: {
+            /** Equity */
+            equity: number;
+            /** Usedmargin */
+            usedMargin: number;
+            /** Freemargin */
+            freeMargin: number;
+            /** Marginlevel */
+            marginLevel?: number | null;
+            /** Unrealizedpnl */
+            unrealizedPnl: number;
+            /** Costbasis */
+            costBasis: number;
+            /** Valuation */
+            valuation: number;
+            /**
+             * Source
+             * @default kraken
+             */
+            source: string;
+        };
         /** NewsItem */
         NewsItem: {
             /** Title */
@@ -453,6 +475,7 @@ export interface components {
              * @default []
              */
             balances: components["schemas"]["Balance"][];
+            marginSummary?: components["schemas"]["MarginSummary"] | null;
         };
         /** Position */
         Position: {
@@ -468,6 +491,10 @@ export interface components {
             unrealizedPnl: number;
             /** Source */
             source: string;
+            /** Side */
+            side?: string | null;
+            /** Marginused */
+            marginUsed?: number | null;
         };
         /** Quote */
         Quote: {
