@@ -44,11 +44,11 @@ export default function CommandBar() {
 
   // Suggestions menu: open while focused and still choosing a verb (no space
   // typed yet). Filters by verb prefix or hint text.
-  const q = input.trim().toLowerCase();
+  const query = input.trim().toLowerCase();
   const typingArgs = input.includes(" ");
   const matches = typingArgs
     ? []
-    : SUGGESTIONS.filter((s) => !q || s.verb.startsWith(q) || s.hint.toLowerCase().includes(q));
+    : SUGGESTIONS.filter((s) => !query || s.verb.startsWith(query) || s.hint.toLowerCase().includes(query));
   const menuOpen = focused && matches.length > 0;
 
   function submit() {
