@@ -11,7 +11,7 @@ function loadAll(): Prefs {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object") return parsed as Prefs;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Prefs;
     return {};
   } catch {
     return {};
