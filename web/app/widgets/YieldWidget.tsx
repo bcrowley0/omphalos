@@ -252,7 +252,7 @@ export default function YieldWidget() {
     >
       <ResourceView state={state}>
         {(data) => {
-          const curves = (data.curves ?? []) as AsOfCurve[];
+          const curves = data.curves ?? [];
           const byKey = new Map(curves.map((c) => [c.key, c]));
           const current = byKey.get("current");
           if (!current || current.points.length === 0) {
@@ -347,7 +347,7 @@ function SettingsPopoverWrapper({
 }) {
   const curvesByKey = useMemo(() => {
     if (state.kind !== "ok") return new Map<string, AsOfCurve>();
-    return new Map((state.data.curves ?? []).map((c) => [c.key, c as AsOfCurve]));
+    return new Map((state.data.curves ?? []).map((c) => [c.key, c]));
   }, [state]);
   return <SettingsPopover prefs={prefs} setPrefs={setPrefs} curvesByKey={curvesByKey} />;
 }

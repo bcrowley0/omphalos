@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { UTCTimestamp } from "lightweight-charts";
 import type { Candle } from "../lib/api/client";
 
 // Renders candles with TradingView Lightweight Charts v5.
@@ -52,7 +53,7 @@ export default function CandleChart({ candles }: { candles: Candle[] }) {
       series.setData(
         candles.map((c) => ({
           // UTCTimestamp is seconds since epoch
-          time: Math.floor(c.t / 1000) as never,
+          time: Math.floor(c.t / 1000) as UTCTimestamp,
           open: c.o,
           high: c.h,
           low: c.l,
