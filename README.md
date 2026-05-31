@@ -76,6 +76,33 @@ explicit loading / error / empty / source states and an on-demand **refresh**.
   ```
   Install from the lockfile with `pip install -r requirements.txt`.
 
+## Parallel development (multiple agents / sessions)
+
+Run **one session per working directory, each on its own branch.** Multiple
+sessions sharing the same checkout and branch will interleave commits and edit each
+other's files — use `git worktree` to give each its own isolated tree off `main`:
+
+```bash
+git worktree add ../omphalos-a -b feat/work-a main   # one per concurrent lane
+cd ../omphalos-a/web && npm ci                        # real install (see caveat 1)
+ln -s "$(git -C ../.. rev-parse --show-toplevel)/api/.venv" ../omphalos-a/api/.venv  # share deps
+```
+
+Point each session at its own dir (e.g. `/path/omphalos-a`) and tell it to stay on
+that branch. When a lane is done, merge to `main`, then
+`git worktree remove ../omphalos-a && git branch -d feat/work-a`.
+
+Caveats:
+1. **Don't symlink `web/node_modules`** — `tsc`/`vitest` tolerate it but `next build`
+   (Turbopack) rejects a symlink pointing outside the tree. Run a real `npm ci` per
+   worktree.
+2. **Share the Python venv** by symlinking `api/.venv` (the project isn't installed
+   editable, so each worktree's `pytest` imports its own `app/`). Don't `pip install`
+   in two lanes at once — do dependency changes in one lane while the others idle.
+3. **Dev servers clash on ports.** Only one process can bind `:8000`/`:3000`; give a
+   second lane different ports (and point its Next.js proxy at the matching API port)
+   if you need two live apps at once. Editing/tests don't need the servers.
+
 ## Secrets & data sources
 
 Secrets live **only** in `api/.env` (gitignored), loaded via pydantic-settings.
