@@ -41,8 +41,7 @@ function QuoteBody({ q, showStale }: { q: Quote; showStale: boolean }) {
 export default function QuoteWidget({ symbol, tabId }: { symbol: string; tabId: string }) {
   const [prefs, setPrefs] = useWidgetPrefs(QUOTE_PREFS_KEY, DEFAULT_QUOTE_PREFS, coerceQuotePrefs);
   const load = useCallback(() => loadQuoteData(symbol), [symbol]);
-  const { on, setOn } = useAutoRefreshToggle(tabId);
-  const onAutoDisabled = useCallback(() => setOn(false), [setOn]);
+  const { on, setOn, pausedReason, onAutoDisabled } = useAutoRefreshToggle(tabId);
   const { state, refresh, isRefreshing } = useResource(load, {
     enabled: on,
     intervalMs: autoRefreshMsFor("quote"),
@@ -66,7 +65,7 @@ export default function QuoteWidget({ symbol, tabId }: { symbol: string; tabId: 
       onRefresh={refresh}
       busy={state.kind === "loading"}
       headerExtra={settings}
-      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing }}
+      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing, paused: pausedReason }}
     >
       <ResourceView state={state}>
         {(data) =>

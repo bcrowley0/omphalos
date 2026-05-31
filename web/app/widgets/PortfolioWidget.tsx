@@ -19,8 +19,7 @@ const tdl: React.CSSProperties = { ...td, textAlign: "left" };
 export default function PortfolioWidget({ tabId }: { tabId: string }) {
   const [prefs, setPrefs] = useWidgetPrefs(PORTFOLIO_PREFS_KEY, DEFAULT_PORTFOLIO_PREFS, coercePortfolioPrefs);
   const load = useCallback(() => loadPortfolio(), []);
-  const { on, setOn } = useAutoRefreshToggle(tabId);
-  const onAutoDisabled = useCallback(() => setOn(false), [setOn]);
+  const { on, setOn, pausedReason, onAutoDisabled } = useAutoRefreshToggle(tabId);
   const { state, refresh, isRefreshing } = useResource(load, {
     enabled: on,
     intervalMs: autoRefreshMsFor("portfolio"),
@@ -49,7 +48,7 @@ export default function PortfolioWidget({ tabId }: { tabId: string }) {
       onRefresh={refresh}
       busy={state.kind === "loading"}
       headerExtra={settings}
-      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing }}
+      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing, paused: pausedReason }}
     >
       <ResourceView state={state}>
         {(data) => (

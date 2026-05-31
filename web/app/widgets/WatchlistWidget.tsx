@@ -21,8 +21,7 @@ export default function WatchlistWidget({ tabId }: { tabId: string }) {
   const [prefs, setPrefs] = useWidgetPrefs(WATCHLIST_PREFS_KEY, DEFAULT_WATCHLIST_PREFS, coerceWatchlistPrefs);
   // Refetch whenever the set of watched symbols changes.
   const load = useCallback(() => loadWatchlist(watchlist), [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { on, setOn } = useAutoRefreshToggle(tabId);
-  const onAutoDisabled = useCallback(() => setOn(false), [setOn]);
+  const { on, setOn, pausedReason, onAutoDisabled } = useAutoRefreshToggle(tabId);
   const { state, refresh, isRefreshing } = useResource(load, {
     enabled: on,
     intervalMs: autoRefreshMsFor("watchlist"),
@@ -45,7 +44,7 @@ export default function WatchlistWidget({ tabId }: { tabId: string }) {
       onRefresh={refresh}
       busy={state.kind === "loading"}
       headerExtra={settings}
-      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing }}
+      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing, paused: pausedReason }}
     >
       <ResourceView state={state}>
         {(data) =>
