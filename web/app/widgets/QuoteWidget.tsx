@@ -5,6 +5,8 @@ import { fmt, ResourceView, signColor, StatusNotice, WidgetFrame } from "../comp
 import { loadQuoteData } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import type { Quote } from "../lib/api/client";
+import { useAutoRefreshToggle } from "../lib/useAutoRefreshToggle";
+import { autoRefreshMsFor, statusIsHealthy } from "../lib/autoRefresh";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -33,13 +35,26 @@ function QuoteBody({ q }: { q: Quote }) {
   );
 }
 
-export default function QuoteWidget({ symbol }: { symbol: string }) {
+export default function QuoteWidget({ symbol, tabId }: { symbol: string; tabId: string }) {
   const load = useCallback(() => loadQuoteData(symbol), [symbol]);
-  const { state, refresh } = useResource(load);
+  const { on, setOn } = useAutoRefreshToggle(tabId);
+  const onAutoDisabled = useCallback(() => setOn(false), [setOn]);
+  const { state, refresh, isRefreshing } = useResource(load, {
+    enabled: on,
+    intervalMs: autoRefreshMsFor("quote"),
+    isHealthy: statusIsHealthy,
+    onAutoDisabled,
+  });
   const source = state.kind === "ok" ? state.data.quote?.source : undefined;
 
   return (
-    <WidgetFrame title={`Quote · ${symbol}`} source={source} onRefresh={refresh} busy={state.kind === "loading"}>
+    <WidgetFrame
+      title={`Quote · ${symbol}`}
+      source={source}
+      onRefresh={refresh}
+      busy={state.kind === "loading"}
+      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing }}
+    >
       <ResourceView state={state}>
         {(data) =>
           data.quote ? <QuoteBody q={data.quote} /> : <StatusNotice status="empty" message="No quote." />

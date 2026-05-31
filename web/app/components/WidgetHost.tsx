@@ -18,17 +18,17 @@ import SettingsWidget from "../widgets/SettingsWidget";
 export default function WidgetHost({ tab }: { tab: Tab }) {
   switch (tab.widget) {
     case "chart":
-      return <ChartWidget symbol={tab.symbol!} />;
+      return <ChartWidget symbol={tab.symbol!} tabId={tab.id} />;
     case "quote":
-      return <QuoteWidget symbol={tab.symbol!} />;
+      return <QuoteWidget symbol={tab.symbol!} tabId={tab.id} />;
     case "portfolio":
-      return <PortfolioWidget />;
+      return <PortfolioWidget tabId={tab.id} />;
     case "yield":
       return <YieldWidget />;
     case "news":
       return <NewsWidget feed={tab.feed} />;
     case "watchlist":
-      return <WatchlistWidget />;
+      return <WatchlistWidget tabId={tab.id} />;
     case "cal":
       return <CalendarWidget />;
     case "help":

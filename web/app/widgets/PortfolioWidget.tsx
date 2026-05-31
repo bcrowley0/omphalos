@@ -4,17 +4,31 @@ import { useCallback } from "react";
 import { fmt, ResourceView, signColor, WidgetFrame } from "../components/ui";
 import { loadPortfolio } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
+import { useAutoRefreshToggle } from "../lib/useAutoRefreshToggle";
+import { autoRefreshMsFor, statusIsHealthy } from "../lib/autoRefresh";
 
 const th: React.CSSProperties = { textAlign: "right", color: "var(--muted)", fontWeight: 400, padding: "0.3rem 0.6rem" };
 const td: React.CSSProperties = { textAlign: "right", padding: "0.3rem 0.6rem" };
 const tdl: React.CSSProperties = { ...td, textAlign: "left" };
 
-export default function PortfolioWidget() {
+export default function PortfolioWidget({ tabId }: { tabId: string }) {
   const load = useCallback(() => loadPortfolio(), []);
-  const { state, refresh } = useResource(load);
+  const { on, setOn } = useAutoRefreshToggle(tabId);
+  const onAutoDisabled = useCallback(() => setOn(false), [setOn]);
+  const { state, refresh, isRefreshing } = useResource(load, {
+    enabled: on,
+    intervalMs: autoRefreshMsFor("portfolio"),
+    isHealthy: statusIsHealthy,
+    onAutoDisabled,
+  });
 
   return (
-    <WidgetFrame title="Portfolio" onRefresh={refresh} busy={state.kind === "loading"}>
+    <WidgetFrame
+      title="Portfolio"
+      onRefresh={refresh}
+      busy={state.kind === "loading"}
+      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing }}
+    >
       <ResourceView state={state}>
         {(data) => (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>

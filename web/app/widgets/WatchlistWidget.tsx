@@ -6,16 +6,30 @@ import { loadWatchlist } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import { useTerminal } from "../lib/useTerminal";
 import { terminalStore } from "../lib/store";
+import { useAutoRefreshToggle } from "../lib/useAutoRefreshToggle";
+import { autoRefreshMsFor, statusIsHealthy } from "../lib/autoRefresh";
 
-export default function WatchlistWidget() {
+export default function WatchlistWidget({ tabId }: { tabId: string }) {
   const { watchlist } = useTerminal();
   const key = watchlist.join(",");
   // Refetch whenever the set of watched symbols changes.
   const load = useCallback(() => loadWatchlist(watchlist), [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { state, refresh } = useResource(load);
+  const { on, setOn } = useAutoRefreshToggle(tabId);
+  const onAutoDisabled = useCallback(() => setOn(false), [setOn]);
+  const { state, refresh, isRefreshing } = useResource(load, {
+    enabled: on,
+    intervalMs: autoRefreshMsFor("watchlist"),
+    isHealthy: statusIsHealthy,
+    onAutoDisabled,
+  });
 
   return (
-    <WidgetFrame title="Watchlist" onRefresh={refresh} busy={state.kind === "loading"}>
+    <WidgetFrame
+      title="Watchlist"
+      onRefresh={refresh}
+      busy={state.kind === "loading"}
+      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing }}
+    >
       <ResourceView state={state}>
         {(data) =>
           data.quotes.length === 0 ? (
