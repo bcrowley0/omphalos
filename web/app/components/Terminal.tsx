@@ -48,7 +48,7 @@ export default function Terminal() {
             <p>
               Type a command in the bar above to begin — e.g.{" "}
               <code style={{ color: "var(--accent)" }}>chart AAPL</code>,{" "}
-              <code style={{ color: "var(--accent)" }}>crypto BTC/USD</code>, or{" "}
+              <code style={{ color: "var(--accent)" }}>chart BTC/USD</code>, or{" "}
               <code style={{ color: "var(--accent)" }}>help</code>.
             </p>
           </div>

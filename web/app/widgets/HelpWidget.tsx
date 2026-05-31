@@ -1,13 +1,12 @@
 "use client";
 
 const COMMANDS: [string, string][] = [
-  ["chart <SYMBOL>", "Open a price chart (equity or crypto pair)"],
-  ["quote <SYMBOL>", "Snapshot quote for a symbol"],
+  ["chart <SYMBOL>", "Price chart — equity or crypto pair (e.g. AAPL, BTC/USD)"],
+  ["quote <SYMBOL>", "Snapshot quote — equity or crypto (e.g. AAPL, BTC)"],
   ["watch <SYMBOL>", "Add a symbol to the watchlist"],
   ["unwatch <SYMBOL>", "Remove a symbol from the watchlist"],
   ["port", "Portfolio: positions (IBKR) + balances (Kraken)"],
   ["yield", "US Treasury yield curve (FRED)"],
-  ["crypto <PAIR>", "Crypto ticker + chart, e.g. crypto BTC/USD"],
   ["news [feed]", "Headlines (optional feed name)"],
   ["follow <name>", "Follow a person; opens their feed (news, interviews, talks)"],
   ["unfollow <name>", "Stop following a person"],

@@ -7,7 +7,6 @@ export type Command =
   | { kind: "unwatch"; symbol: string }
   | { kind: "port" }
   | { kind: "yield" }
-  | { kind: "crypto"; pair: string }
   | { kind: "news"; feed?: string }
   | { kind: "cal" }
   | { kind: "help" }
@@ -16,9 +15,6 @@ export type Command =
   | { kind: "following" }
   | { kind: "error"; input: string; message: string };
 
-// Which backend source serves a given symbol (CLAUDE.md symbol router).
-export type Source = "ibkr" | "kraken";
-
 // The widget a tab renders.
 export type WidgetKind =
   | "chart"
@@ -26,7 +22,6 @@ export type WidgetKind =
   | "watchlist"
   | "portfolio"
   | "yield"
-  | "crypto"
   | "news"
   | "cal"
   | "help"
@@ -40,7 +35,6 @@ export type Tab = {
   widget: WidgetKind;
   title: string;
   symbol?: string;
-  pair?: string;
   feed?: string;
   person?: string;
 };

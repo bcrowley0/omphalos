@@ -1,6 +1,5 @@
 import { api } from "./api/client";
 import type { Schemas } from "./api/client";
-import { routeSymbol } from "./command/router";
 import type { Person } from "./command/types";
 import type { Interval, Span } from "./chart/range";
 
@@ -24,26 +23,14 @@ export async function loadChart(
   interval: Interval = "1d",
   span: Span = "1M",
 ): Promise<Schemas["CandlesResponse"]> {
-  const { data, error } = await api.GET("/chart/{symbol}", {
-    params: { path: { symbol }, query: { interval, span } },
+  const { data, error } = await api.GET("/chart", {
+    params: { query: { symbol, interval, span } },
   });
   return unwrap(data, error);
 }
 
 export async function loadQuote(symbol: string): Promise<Schemas["QuoteResponse"]> {
-  const { data, error } = await api.GET("/quote/{symbol}", { params: { path: { symbol } } });
-  return unwrap(data, error);
-}
-
-export async function loadCrypto(
-  pair: string,
-  interval: Interval = "1d",
-  span: Span = "1M",
-): Promise<Schemas["CryptoResponse"]> {
-  const [base, quoteCcy] = pair.split("/");
-  const { data, error } = await api.GET("/crypto/{base}/{quote_ccy}", {
-    params: { path: { base, quote_ccy: quoteCcy }, query: { interval, span } },
-  });
+  const { data, error } = await api.GET("/quote", { params: { query: { symbol } } });
   return unwrap(data, error);
 }
 
@@ -84,10 +71,10 @@ export async function addFeed(name: string, url: string): Promise<Schemas["FeedL
   return unwrap(data, error);
 }
 
-// Unified chart/quote loaders. A pair (e.g. BTC/USD) routes to Kraken via the
-// /crypto endpoint (a slash can't pass through /chart/{symbol}); a plain ticker
-// routes to /chart or /quote (IBKR). Both normalize to a common shape so the
-// widgets stay source-agnostic.
+// Unified chart/quote loaders. The backend symbol resolver routes crypto vs
+// equity from the raw symbol (e.g. `btc`, `BTC/USD`, `aapl`), so the frontend
+// just passes the symbol through. Both normalize to a common shape so widgets
+// stay source-agnostic.
 export type ChartData = {
   status: Schemas["SourceStatus"];
   message?: string | null;
@@ -100,10 +87,6 @@ export async function loadChartData(
   interval: Interval = "1d",
   span: Span = "1M",
 ): Promise<ChartData> {
-  if (routeSymbol(symbol) === "kraken") {
-    const r = await loadCrypto(symbol, interval, span);
-    return { status: r.status, message: r.message, source: r.source, candles: r.candles };
-  }
   const r = await loadChart(symbol, interval, span);
   return { status: r.status, message: r.message, source: r.source, candles: r.candles };
 }
@@ -115,10 +98,6 @@ export type QuoteData = {
 };
 
 export async function loadQuoteData(symbol: string): Promise<QuoteData> {
-  if (routeSymbol(symbol) === "kraken") {
-    const r = await loadCrypto(symbol);
-    return { status: r.status, message: r.message, quote: r.quote };
-  }
   const r = await loadQuote(symbol);
   return { status: r.status, message: r.message, quote: r.quote };
 }

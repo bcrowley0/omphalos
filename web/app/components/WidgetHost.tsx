@@ -3,7 +3,6 @@
 import type { Tab } from "../lib/command/types";
 import ChartWidget from "../widgets/ChartWidget";
 import QuoteWidget from "../widgets/QuoteWidget";
-import CryptoWidget from "../widgets/CryptoWidget";
 import PortfolioWidget from "../widgets/PortfolioWidget";
 import YieldWidget from "../widgets/YieldWidget";
 import NewsWidget from "../widgets/NewsWidget";
@@ -21,8 +20,6 @@ export default function WidgetHost({ tab }: { tab: Tab }) {
       return <ChartWidget symbol={tab.symbol!} />;
     case "quote":
       return <QuoteWidget symbol={tab.symbol!} />;
-    case "crypto":
-      return <CryptoWidget pair={tab.pair!} />;
     case "portfolio":
       return <PortfolioWidget />;
     case "yield":

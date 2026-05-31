@@ -5,10 +5,10 @@ import { parseCommand } from "./parser";
 const tabFor = (input: string) => commandToTab(parseCommand(input));
 
 describe("commandToTab", () => {
-  it("maps chart/quote/crypto to per-symbol tabs with stable dedup ids", () => {
+  it("maps chart/quote to per-symbol tabs with stable dedup ids (crypto pairs go through chart)", () => {
     expect(tabFor("chart AAPL")).toMatchObject({ id: "chart:AAPL", widget: "chart", symbol: "AAPL" });
     expect(tabFor("quote MSFT")).toMatchObject({ id: "quote:MSFT", widget: "quote", symbol: "MSFT" });
-    expect(tabFor("crypto BTC/USD")).toMatchObject({ id: "crypto:BTC/USD", widget: "crypto", pair: "BTC/USD" });
+    expect(tabFor("chart BTC/USD")).toMatchObject({ id: "chart:BTC/USD", widget: "chart", symbol: "BTC/USD" });
   });
 
   it("maps singleton commands to fixed ids so re-running focuses, not duplicates", () => {

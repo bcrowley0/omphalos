@@ -11,8 +11,6 @@ export function commandToTab(cmd: Command): Tab | null {
       return { id: `chart:${cmd.symbol}`, widget: "chart", title: `Chart ${cmd.symbol}`, symbol: cmd.symbol };
     case "quote":
       return { id: `quote:${cmd.symbol}`, widget: "quote", title: `Quote ${cmd.symbol}`, symbol: cmd.symbol };
-    case "crypto":
-      return { id: `crypto:${cmd.pair}`, widget: "crypto", title: cmd.pair, pair: cmd.pair };
     case "watch":
     case "unwatch":
       return { id: "watchlist", widget: "watchlist", title: "Watchlist" };

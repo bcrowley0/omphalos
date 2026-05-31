@@ -24,10 +24,6 @@ export function parseCommand(input: string): Command {
       if (args.length === 0) return err(input, `Usage: ${verb} <SYMBOL>`);
       return { kind: verb, symbol: args[0].toUpperCase() };
     }
-    case "crypto": {
-      if (args.length === 0) return err(input, "Usage: crypto <PAIR>, e.g. crypto BTC/USD");
-      return { kind: "crypto", pair: args[0].toUpperCase() };
-    }
     case "news":
       return { kind: "news", feed: args.length ? args.join(" ") : undefined };
     case "port":

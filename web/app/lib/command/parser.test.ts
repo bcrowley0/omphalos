@@ -22,8 +22,8 @@ describe("parseCommand", () => {
     expect(parseCommand("help")).toEqual({ kind: "help" });
   });
 
-  it("parses `crypto BTC/USD` preserving the pair (upper-cased)", () => {
-    expect(parseCommand("crypto btc/usd")).toEqual({ kind: "crypto", pair: "BTC/USD" });
+  it("parses `chart` with a slashed crypto pair (resolver routes it server-side)", () => {
+    expect(parseCommand("chart btc/usd")).toEqual({ kind: "chart", symbol: "BTC/USD" });
   });
 
   it("parses `news` with no feed and `news <feed>` with a feed", () => {
@@ -52,8 +52,8 @@ describe("parseCommand", () => {
     if (r.kind === "error") expect(r.message).toMatch(/symbol|argument|usage/i);
   });
 
-  it("returns an error when `crypto` is missing its pair", () => {
-    expect(parseCommand("crypto").kind).toBe("error");
+  it("treats the retired `crypto` verb as an unknown command", () => {
+    expect(parseCommand("crypto BTC/USD").kind).toBe("error");
   });
 
   it("parses `follow <multi-word name>` keeping the full name", () => {
