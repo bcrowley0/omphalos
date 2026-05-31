@@ -27,8 +27,7 @@ export default function ChartWidget({ symbol, tabId }: { symbol: string; tabId: 
   const [prefs, setPrefs] = useWidgetPrefs(CHART_PREFS_KEY, DEFAULT_CHART_PREFS, coerceChartPrefs);
 
   const load = useCallback(() => loadChartData(symbol, interval, span), [symbol, interval, span]);
-  const { on, setOn } = useAutoRefreshToggle(tabId);
-  const onAutoDisabled = useCallback(() => setOn(false), [setOn]);
+  const { on, setOn, pausedReason, onAutoDisabled } = useAutoRefreshToggle(tabId);
   const { state, refresh, isRefreshing } = useResource(load, {
     enabled: on,
     intervalMs: autoRefreshMsFor("chart"),
@@ -57,7 +56,7 @@ export default function ChartWidget({ symbol, tabId }: { symbol: string; tabId: 
       onRefresh={refresh}
       busy={state.kind === "loading"}
       headerExtra={settings}
-      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing }}
+      autoRefresh={{ on, onToggle: setOn, refreshing: isRefreshing, paused: pausedReason }}
     >
       <ChartControls
         span={span}

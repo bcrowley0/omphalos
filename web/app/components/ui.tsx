@@ -94,7 +94,7 @@ export function WidgetFrame({
   onRefresh: () => void;
   busy: boolean;
   headerExtra?: ReactNode;
-  autoRefresh?: { on: boolean; onToggle: (on: boolean) => void; refreshing: boolean };
+  autoRefresh?: { on: boolean; onToggle: (on: boolean) => void; refreshing: boolean; paused?: string | null };
   children: ReactNode;
 }) {
   return (
@@ -112,6 +112,9 @@ export function WidgetFrame({
           {source && <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>via {source}</span>}
           {autoRefresh?.on && autoRefresh.refreshing && (
             <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>updating…</span>
+          )}
+          {autoRefresh && !autoRefresh.on && autoRefresh.paused && (
+            <span style={{ color: "#d9a441", fontSize: "0.75rem" }}>{autoRefresh.paused}</span>
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
