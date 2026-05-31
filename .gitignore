@@ -27,6 +27,8 @@ next-env.d.ts
 
 # ---- Local dev convenience (not part of the repo) ----
 dev.sh
+go.sh
+dev-servers.log
 .worktrees/
 go.sh
 dev-servers.log
