@@ -19,6 +19,7 @@ from typing import Any
 import feedparser
 
 from ..cache import cache
+from ..dedupe import dedupe_by_url_recent
 from ..http import get_text
 from ..models import NewsItem
 from .base import Adapter, SourceUnavailable
@@ -175,11 +176,7 @@ def _recency_key(item: NewsItem) -> tuple[bool, int]:
 
 def dedupe_sort_news(items: list[NewsItem]) -> list[NewsItem]:
     """Dedupe by URL, sort newest-first (None publishedTs sinks last). Pure."""
-    by_url: dict[str, NewsItem] = {}
-    for it in items:
-        if it.url and it.url not in by_url:
-            by_url[it.url] = it
-    return sorted(by_url.values(), key=_recency_key, reverse=True)
+    return dedupe_by_url_recent(items)
 
 
 def interleave_by_source(items: list[NewsItem], limit: int) -> list[NewsItem]:

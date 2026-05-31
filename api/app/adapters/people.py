@@ -14,6 +14,7 @@ import urllib.parse
 from typing import Any
 
 from ..cache import cache
+from ..dedupe import dedupe_by_url_recent
 from ..http import get_text
 from ..models import FollowItem, NewsItem
 from .base import Adapter, SourceUnavailable
@@ -158,11 +159,7 @@ def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> lis
 
 def merge_dedupe_sort(items: list[FollowItem]) -> list[FollowItem]:
     """Dedupe by URL, sort newest-first (None publishedTs sinks last). Pure."""
-    by_url: dict[str, FollowItem] = {}
-    for it in items:
-        if it.url and it.url not in by_url:
-            by_url[it.url] = it
-    return sorted(by_url.values(), key=lambda i: (i.published_ts is not None, i.published_ts or 0), reverse=True)
+    return dedupe_by_url_recent(items)
 
 
 class PeopleAdapter(Adapter):
