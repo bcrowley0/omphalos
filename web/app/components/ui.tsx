@@ -84,12 +84,14 @@ export function WidgetFrame({
   source,
   onRefresh,
   busy,
+  headerExtra,
   children,
 }: {
   title: string;
   source?: string;
   onRefresh: () => void;
   busy: boolean;
+  headerExtra?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -106,21 +108,24 @@ export function WidgetFrame({
           <strong style={{ fontSize: "1.05rem" }}>{title}</strong>
           {source && <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>via {source}</span>}
         </div>
-        <button
-          onClick={onRefresh}
-          disabled={busy}
-          style={{
-            background: "transparent",
-            color: "var(--foreground)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            padding: "0.3rem 0.7rem",
-            cursor: busy ? "default" : "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          {busy ? "…" : "refresh"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {headerExtra}
+          <button
+            onClick={onRefresh}
+            disabled={busy}
+            style={{
+              background: "transparent",
+              color: "var(--foreground)",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              padding: "0.3rem 0.7rem",
+              cursor: busy ? "default" : "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            {busy ? "…" : "refresh"}
+          </button>
+        </div>
       </div>
       {children}
     </div>

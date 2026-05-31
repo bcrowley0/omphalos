@@ -10,7 +10,9 @@ wired to a route (hard rule #4).
 
 from __future__ import annotations
 
-from ..models import Balance, Candle, NewsItem, Position, Quote, YieldPoint
+from datetime import date
+
+from ..models import AsOfCurve, Balance, Candle, NewsItem, Position, Quote
 
 
 class NotSupported(Exception):
@@ -54,7 +56,7 @@ class Adapter:
     async def get_news(self, feed: str | None = None) -> list[NewsItem]:
         raise NotSupported(f"{self.name} does not support news")
 
-    async def get_yield_curve(self) -> list[YieldPoint]:
+    async def get_yield_curve(self, asof_dates: list[date]) -> list[AsOfCurve]:
         raise NotSupported(f"{self.name} does not support a yield curve")
 
     def place_order(self, *args, **kwargs):  # noqa: ANN002, ANN003

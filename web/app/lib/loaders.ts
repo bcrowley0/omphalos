@@ -41,8 +41,8 @@ export async function loadPortfolio(): Promise<Schemas["PortfolioResponse"]> {
   return unwrap(data, error);
 }
 
-export async function loadYield(): Promise<Schemas["YieldCurveResponse"]> {
-  const { data, error } = await api.GET("/yield", {});
+export async function loadYield(asof: string[] = []): Promise<Schemas["YieldCurveResponse"]> {
+  const { data, error } = await api.GET("/yield", { params: { query: { asof } } });
   return unwrap(data, error);
 }
 
