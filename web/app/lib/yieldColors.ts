@@ -17,25 +17,25 @@ const GRAY_RAMP = ["#c3cad6", "#9aa3b3", "#767f90", "#dfe4ec", "#aab2c0", "#646d
 export const COLOR_THEMES: Record<ColorTheme, ThemeConfig> = {
   vivid: {
     label: "Vivid",
-    current: "var(--accent)",
+    current: "#ffffff",
     palette: ["#4c8dff", "#f5b833", "#ff5fb4", "#a06bff", "#ff8a3d", "#2bc8d4"],
     deltaSemantic: true,
   },
   blue: {
     label: "Blue scale",
-    current: "#5b9dff",
+    current: "#ffffff",
     palette: ["#9ec5ff", "#4c8dff", "#2f6fe0", "#7cc4ff", "#3aa0e6", "#1f4fb0"],
     deltaSemantic: true,
   },
   gray: {
     label: "Gray scale",
-    current: "#eef1f6",
+    current: "#ffffff",
     palette: GRAY_RAMP,
     deltaSemantic: false,
   },
   "gray-fn": {
     label: "Gray + Δ color",
-    current: "#eef1f6",
+    current: "#ffffff",
     palette: GRAY_RAMP,
     deltaSemantic: true,
   },
