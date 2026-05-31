@@ -6,7 +6,7 @@ import { addFeed, loadFeeds, loadNews } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import { terminalStore } from "../lib/store";
 import type { FeedInfo } from "../lib/api/client";
-import { timeAgo } from "../lib/format";
+import { absTime, timeAgo } from "../lib/format";
 
 // Feed chips + add-feed form. Clicking a feed runs `news <NAME>` (opens/focuses
 // that feed's tab); adding a feed POSTs then opens it.
@@ -161,7 +161,7 @@ export default function NewsWidget({ feed }: { feed?: string }) {
                 role="row"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 8rem 5rem",
+                  gridTemplateColumns: "1fr auto auto",
                   gap: "0.8rem",
                   padding: "0 0 0.4rem",
                   color: "var(--muted)",
@@ -172,7 +172,7 @@ export default function NewsWidget({ feed }: { feed?: string }) {
               >
                 <span>Headline</span>
                 <span>Source</span>
-                <span style={{ textAlign: "right" }}>Time</span>
+                <span>Time</span>
               </div>
               {data.items.map((item) => (
                 <div
@@ -180,7 +180,7 @@ export default function NewsWidget({ feed }: { feed?: string }) {
                   role="row"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 8rem 5rem",
+                    gridTemplateColumns: "1fr auto auto",
                     alignItems: "baseline",
                     gap: "0.8rem",
                     padding: "0.4rem 0",
@@ -197,14 +197,14 @@ export default function NewsWidget({ feed }: { feed?: string }) {
                   >
                     {item.title}
                   </a>
-                  <span
-                    title={item.feed}
-                    style={{ color: "var(--muted)", fontSize: "0.78rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                  >
+                  <span style={{ color: "var(--muted)", fontSize: "0.78rem", whiteSpace: "nowrap" }}>
                     {item.feed}
                   </span>
-                  <span style={{ color: "var(--muted)", fontSize: "0.78rem", textAlign: "right", whiteSpace: "nowrap" }}>
-                    {timeAgo(item.publishedTs)}
+                  <span
+                    title={timeAgo(item.publishedTs)}
+                    style={{ color: "var(--muted)", fontSize: "0.78rem", whiteSpace: "nowrap" }}
+                  >
+                    {absTime(item.publishedTs)}
                   </span>
                 </div>
               ))}
