@@ -204,11 +204,8 @@ class IbkrAdapter(Adapter):
     async def _prime(self) -> None:
         # Market data often requires the accounts endpoint to be hit first.
         if not self._primed:
-            try:
-                await self._get("/iserver/accounts")
-                self._primed = True
-            except SourceUnavailable:
-                raise
+            await self._get("/iserver/accounts")
+            self._primed = True
 
     async def _resolve_conid(self, symbol: str) -> str:
         if symbol in self._conids:
