@@ -95,9 +95,9 @@ _PERIOD_MONTHS = {"1m": 1, "3m": 3, "6m": 6, "1y": 12}
 
 
 def _subtract_months(dt: datetime, months: int) -> datetime:
-    index = dt.month - 1 - months
-    year = dt.year + index // 12
-    month = index % 12 + 1
+    month_offset = dt.month - 1 - months
+    year = dt.year + month_offset // 12
+    month = month_offset % 12 + 1
     day = min(dt.day, calendar.monthrange(year, month)[1])  # clamp short months
     return dt.replace(year=year, month=month, day=day)
 
