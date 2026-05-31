@@ -253,3 +253,17 @@ class PeopleFeedResponse(CamelModel):
     message: str | None = None
     items: list[FollowItem] = []
     errors: list[FeedError] = []
+
+
+# --------------------------------------------------------------------------- #
+# Connection status — non-secret. Reports whether each source is configured and
+# how to fix it; NEVER carries key values (CLAUDE.md hard rule #2).
+# --------------------------------------------------------------------------- #
+class SourceConnection(CamelModel):
+    source: str
+    configured: bool
+    detail: str
+
+
+class StatusResponse(CamelModel):
+    sources: list[SourceConnection] = []

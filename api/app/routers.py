@@ -22,6 +22,7 @@ from .adapters.base import (
 )
 from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
+from .config import Settings, get_settings
 from .deps import get_registry
 from .models import (
     AddFeedRequest,
@@ -40,8 +41,10 @@ from .models import (
     Position,
     Quote,
     QuoteResponse,
-    Span,
+    SourceConnection,
     SourceStatus,
+    Span,
+    StatusResponse,
     YieldCurveResponse,
 )
 from .symbols import resolve
@@ -282,3 +285,39 @@ async def calendar() -> CalendarResponse:
         status=SourceStatus.NOT_IMPLEMENTED,
         message="Economic calendar is not implemented yet.",
     )
+
+
+# --------------------------------------------------------------------------- #
+# status (settings widget) — non-secret per-source connection status
+# --------------------------------------------------------------------------- #
+def build_status(settings: Settings) -> StatusResponse:
+    """Pure: per-source configured-state + guidance, derived from config presence
+    only. Never reads or returns key values (CLAUDE.md hard rule #2)."""
+    fred = bool(settings.fred_api_key)
+    kraken = bool(settings.kraken_api_key and settings.kraken_api_secret)
+    return StatusResponse(
+        sources=[
+            SourceConnection(
+                source="fred",
+                configured=fred,
+                detail="FRED key set." if fred else "Add FRED_API_KEY to api/.env.",
+            ),
+            SourceConnection(
+                source="kraken",
+                configured=kraken,
+                detail="Kraken keys set."
+                if kraken
+                else "Add KRAKEN_API_KEY and KRAKEN_API_SECRET to api/.env.",
+            ),
+            SourceConnection(
+                source="ibkr",
+                configured=True,
+                detail="Run the Client Portal Gateway and log in at https://localhost:5000.",
+            ),
+        ]
+    )
+
+
+@router.get("/status", response_model=StatusResponse, tags=["meta"])
+async def status() -> StatusResponse:
+    return build_status(get_settings())
