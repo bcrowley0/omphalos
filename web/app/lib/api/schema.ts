@@ -21,7 +21,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/chart/{symbol}": {
+    "/chart": {
         parameters: {
             query?: never;
             header?: never;
@@ -29,7 +29,7 @@ export interface paths {
             cookie?: never;
         };
         /** Chart */
-        get: operations["chart_chart__symbol__get"];
+        get: operations["chart_chart_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -38,7 +38,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/quote/{symbol}": {
+    "/quote": {
         parameters: {
             query?: never;
             header?: never;
@@ -46,24 +46,7 @@ export interface paths {
             cookie?: never;
         };
         /** Quote */
-        get: operations["quote_quote__symbol__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/crypto/{base}/{quote_ccy}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Crypto */
-        get: operations["crypto_crypto__base___quote_ccy__get"];
+        get: operations["quote_quote_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -251,26 +234,6 @@ export interface components {
             symbol: string;
             /** Source */
             source: string;
-            /**
-             * Candles
-             * @default []
-             */
-            candles: components["schemas"]["Candle"][];
-            /** @default 1h */
-            interval: components["schemas"]["Interval"];
-            /** @default 1M */
-            span: components["schemas"]["Span"];
-        };
-        /** CryptoResponse */
-        CryptoResponse: {
-            status: components["schemas"]["SourceStatus"];
-            /** Message */
-            message?: string | null;
-            /** Pair */
-            pair: string;
-            /** Source */
-            source: string;
-            quote?: components["schemas"]["Quote"] | null;
             /**
              * Candles
              * @default []
@@ -564,16 +527,15 @@ export interface operations {
             };
         };
     };
-    chart_chart__symbol__get: {
+    chart_chart_get: {
         parameters: {
-            query?: {
+            query: {
+                symbol: string;
                 interval?: components["schemas"]["Interval"];
                 span?: components["schemas"]["Span"];
             };
             header?: never;
-            path: {
-                symbol: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -598,13 +560,13 @@ export interface operations {
             };
         };
     };
-    quote_quote__symbol__get: {
+    quote_quote_get: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
+            query: {
                 symbol: string;
             };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -616,41 +578,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuoteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    crypto_crypto__base___quote_ccy__get: {
-        parameters: {
-            query?: {
-                interval?: components["schemas"]["Interval"];
-                span?: components["schemas"]["Span"];
-            };
-            header?: never;
-            path: {
-                base: string;
-                quote_ccy: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CryptoResponse"];
                 };
             };
             /** @description Validation Error */
