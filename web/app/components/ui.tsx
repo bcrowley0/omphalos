@@ -78,13 +78,15 @@ export function ResourceView<T extends { status: SourceStatus; message?: string 
   return <>{children(data)}</>;
 }
 
-// Standard widget chrome: title + source label + refresh button (on-demand only).
+// Standard widget chrome: title + source label + optional auto-refresh toggle +
+// refresh button (on-demand only; auto-refresh is opt-in per CLAUDE.md rule 5).
 export function WidgetFrame({
   title,
   source,
   onRefresh,
   busy,
   headerExtra,
+  autoRefresh,
   children,
 }: {
   title: string;
@@ -92,6 +94,7 @@ export function WidgetFrame({
   onRefresh: () => void;
   busy: boolean;
   headerExtra?: ReactNode;
+  autoRefresh?: { on: boolean; onToggle: (on: boolean) => void; refreshing: boolean };
   children: ReactNode;
 }) {
   return (
@@ -107,9 +110,30 @@ export function WidgetFrame({
         <div style={{ display: "flex", alignItems: "baseline", gap: "0.6rem" }}>
           <strong style={{ fontSize: "1.05rem" }}>{title}</strong>
           {source && <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>via {source}</span>}
+          {autoRefresh?.on && autoRefresh.refreshing && (
+            <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>updating…</span>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           {headerExtra}
+          {autoRefresh && (
+            <button
+              onClick={() => autoRefresh.onToggle(!autoRefresh.on)}
+              title={autoRefresh.on ? "Auto-refresh on — click to turn off" : "Auto-refresh off — click to turn on"}
+              aria-pressed={autoRefresh.on}
+              style={{
+                background: autoRefresh.on ? "var(--accent)" : "transparent",
+                color: autoRefresh.on ? "var(--background)" : "var(--muted)",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                padding: "0.3rem 0.7rem",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {autoRefresh.on ? "auto ●" : "auto ○"}
+            </button>
+          )}
           <button
             onClick={onRefresh}
             disabled={busy}
