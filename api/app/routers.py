@@ -20,6 +20,7 @@ from .adapters.base import (
     SourceUnavailable,
     Unauthenticated,
 )
+from .adapters.ibkr import IbkrAdapter, gateway_login_url
 from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
 from .config import Settings, get_settings, update_env_file
@@ -33,6 +34,7 @@ from .models import (
     FeedInfo,
     FeedListResponse,
     FollowItem,
+    IbkrAuthResponse,
     Interval,
     KeysUpdateRequest,
     NewsResponse,
@@ -338,3 +340,27 @@ async def update_keys(req: KeysUpdateRequest) -> StatusResponse:
     if updates:
         update_env_file(updates)
     return build_status(get_settings())
+
+
+# --------------------------------------------------------------------------- #
+# IBKR live connection state — one-click "log in at the gateway" UX. Never
+# raises (get_auth_state maps every failure to a state); loginUrl is derived
+# from config so the frontend never hardcodes the gateway location.
+# --------------------------------------------------------------------------- #
+_IBKR_DETAIL: dict[str, str] = {
+    "authenticated": "Connected to the IBKR gateway.",
+    "unauthenticated": "Gateway is running, but you're not logged in.",
+    "unreachable": "IBKR gateway not reachable — is the Client Portal Gateway running?",
+}
+
+
+@router.get("/ibkr/auth", response_model=IbkrAuthResponse, tags=["meta"])
+async def ibkr_auth() -> IbkrAuthResponse:
+    login_url = gateway_login_url(get_settings().ibkr_gateway_base_url)
+    adapter = _adapter("ibkr")
+    if not isinstance(adapter, IbkrAdapter):
+        return IbkrAuthResponse(
+            state="unreachable", login_url=login_url, detail="IBKR integration not available."
+        )
+    state = await adapter.get_auth_state()
+    return IbkrAuthResponse(state=state, login_url=login_url, detail=_IBKR_DETAIL[state])

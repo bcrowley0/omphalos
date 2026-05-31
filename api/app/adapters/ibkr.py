@@ -22,7 +22,7 @@ import httpx
 
 from ..config import get_settings
 from ..http import get_json, post_form
-from ..models import Candle, Interval, Position, Quote, Span
+from ..models import Candle, IbkrAuthState, Interval, Position, Quote, Span
 from .base import Adapter, SourceUnavailable, Unauthenticated
 
 # Numeric snapshot field codes -> canonical names (IBKR Web API reference).
@@ -216,6 +216,20 @@ class IbkrAdapter(Adapter):
             auth = (status or {}).get("authenticated")
         if not auth:
             raise Unauthenticated("Log in at the IBKR gateway in your browser, then retry.")
+
+    async def get_auth_state(self) -> IbkrAuthState:
+        """Probe the gateway and return one of the three connection states without
+        raising — backs the /ibkr/auth status endpoint. Reuses _ensure_session's
+        state machine: it raises for the not-connected states, which we translate
+        to plain string states here.
+        """
+        try:
+            await self._ensure_session()
+        except Unauthenticated:
+            return "unauthenticated"
+        except SourceUnavailable:
+            return "unreachable"
+        return "authenticated"
 
     async def _prime(self) -> None:
         # Market data often requires the accounts endpoint to be hit first.
