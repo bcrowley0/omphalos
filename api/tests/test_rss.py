@@ -1,6 +1,6 @@
 """Unit tests for RSS parsing/normalization (pure; no network)."""
 
-from app.adapters.rss import dedupe_sort_news, parse_feed
+from app.adapters.rss import dedupe_sort_news, interleave_by_source, parse_feed
 from app.models import NewsItem
 
 _SAMPLE = """<?xml version="1.0"?>
@@ -47,3 +47,55 @@ def test_dedupe_sort_news_dedupes_by_url_and_sorts_newest_first():
     assert urls[0] == "b"  # newest first
     assert urls.count("a") == 1  # deduped by url
     assert urls[-1] == "c"  # undated sinks to the end
+
+
+# A bridged X (Nitter) item: description duplicates the title, link points at the
+# Nitter instance with a trailing #m anchor.
+_TWEET = """<?xml version="1.0"?>
+<rss version="2.0"><channel>
+  <title>@acct</title>
+  <item>
+    <title>BREAKING: thing happened</title>
+    <link>https://nitter.net/acct/status/123#m</link>
+    <description>&lt;p&gt;BREAKING: thing happened&lt;/p&gt;</description>
+    <pubDate>Wed, 05 Jun 2024 12:00:00 GMT</pubDate>
+  </item>
+</channel></rss>"""
+
+
+def test_parse_feed_drops_summary_that_duplicates_title():
+    # Tweets carry the same text as title and body; don't render it twice.
+    items = parse_feed(_TWEET, "DEITAONE")
+    assert items[0].title == "BREAKING: thing happened"
+    assert items[0].summary == ""
+
+
+def test_parse_feed_rewrites_nitter_link_to_x_com():
+    items = parse_feed(_TWEET, "DEITAONE")
+    # Bridge permalink -> canonical x.com, trailing #m anchor stripped.
+    assert items[0].url == "https://x.com/acct/status/123"
+
+
+def test_interleave_caps_firehose_and_includes_every_source():
+    def mk(src, url, ts):
+        return NewsItem(title="t", summary="", url=url, published_ts=ts, feed=src)
+
+    items = [mk("FIRE", f"f{i}", 1000 + i) for i in range(20)]  # high-frequency
+    items += [mk("ECON", "e1", 500), mk("ECON", "e2", 400)]  # low-frequency, older
+    items += [mk("WIRE", "w1", 900)]
+
+    out = interleave_by_source(items, 6)
+    assert len(out) == 6
+    srcs = {i.feed for i in out}
+    assert {"FIRE", "ECON", "WIRE"} <= srcs  # every source represented
+    assert sum(1 for i in out if i.feed == "FIRE") < 6  # firehose can't hog the view
+    assert out[0].feed == "FIRE"  # freshest source still leads
+
+
+def test_interleave_single_source_is_pure_recency():
+    def mk(url, ts):
+        return NewsItem(title="t", summary="", url=url, published_ts=ts, feed="FT")
+
+    out = interleave_by_source([mk("a", 100), mk("b", 300), mk("a", 100), mk("c", None)], 60)
+    urls = [i.url for i in out]
+    assert urls == ["b", "a", "c"]  # deduped, newest-first, undated last
