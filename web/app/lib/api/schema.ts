@@ -197,6 +197,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ibkr/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ibkr Auth */
+        get: operations["ibkr_auth_ibkr_auth_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -357,6 +374,18 @@ export interface components {
             service: string;
             /** Version */
             version: string;
+        };
+        /** IbkrAuthResponse */
+        IbkrAuthResponse: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "authenticated" | "unauthenticated" | "unreachable";
+            /** Loginurl */
+            loginUrl: string;
+            /** Detail */
+            detail: string;
         };
         /**
          * Interval
@@ -893,6 +922,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ibkr_auth_ibkr_auth_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbkrAuthResponse"];
                 };
             };
         };
