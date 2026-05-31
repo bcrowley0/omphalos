@@ -7,6 +7,7 @@ import {
   toggleDelta,
   addExactDate,
   removeCompare,
+  setColorTheme,
 } from "./yieldPrefs";
 
 describe("yieldPrefs", () => {
@@ -16,6 +17,11 @@ describe("yieldPrefs", () => {
     expect(onChart).toEqual(["1w"]);
     const deltas = DEFAULT_YIELD_PREFS.compares.filter((c) => c.showDelta).map(compareKey);
     expect(deltas).toEqual(["1d", "1w", "1m", "3m", "6m", "1y"]);
+  });
+
+  it("default color theme is vivid; setColorTheme switches it", () => {
+    expect(DEFAULT_YIELD_PREFS.colorTheme).toBe("vivid");
+    expect(setColorTheme(DEFAULT_YIELD_PREFS, "gray-fn").colorTheme).toBe("gray-fn");
   });
 
   it("toggleChart / toggleDelta flip the matching compare by key", () => {

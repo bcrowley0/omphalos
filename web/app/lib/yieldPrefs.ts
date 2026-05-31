@@ -8,13 +8,26 @@ export type CompareCurve =
   | { kind: "relative"; period: ComparePeriod; onChart: boolean; showDelta: boolean }
   | { kind: "exact"; date: string; onChart: boolean; showDelta: boolean };
 
+// Overlay color scheme (config lives in yieldColors.ts; the keys are the contract).
+export type ColorTheme = "vivid" | "blue" | "gray" | "gray-fn";
+const COLOR_THEME_KEYS: ColorTheme[] = ["vivid", "blue", "gray", "gray-fn"];
+
+function isColorTheme(x: unknown): x is ColorTheme {
+  return typeof x === "string" && (COLOR_THEME_KEYS as string[]).includes(x);
+}
+
 export type YieldPrefs = {
   currentOnChart: boolean;
   compares: CompareCurve[];
+  colorTheme: ColorTheme;
 };
 
 export function compareKey(c: CompareCurve): string {
   return c.kind === "relative" ? c.period : c.date;
+}
+
+export function setColorTheme(prefs: YieldPrefs, colorTheme: ColorTheme): YieldPrefs {
+  return { ...prefs, colorTheme };
 }
 
 // Canonical shortest → longest lookback ordering for relative curves.
@@ -57,6 +70,7 @@ export const DEFAULT_YIELD_PREFS: YieldPrefs = {
     { kind: "relative", period: "6m", onChart: false, showDelta: true },
     { kind: "relative", period: "1y", onChart: false, showDelta: true },
   ],
+  colorTheme: "vivid",
 };
 
 function mapCompare(prefs: YieldPrefs, key: string, fn: (c: CompareCurve) => CompareCurve): YieldPrefs {
@@ -102,6 +116,7 @@ export function loadYieldPrefs(): YieldPrefs {
     return {
       currentOnChart: typeof parsed.currentOnChart === "boolean" ? parsed.currentOnChart : true,
       compares: sortCompares(parsed.compares.filter(isCompareCurve)),
+      colorTheme: isColorTheme(parsed.colorTheme) ? parsed.colorTheme : "vivid",
     };
   } catch {
     return DEFAULT_YIELD_PREFS;
