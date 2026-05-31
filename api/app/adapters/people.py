@@ -189,7 +189,7 @@ class PeopleAdapter(Adapter):
                     return []
                 return to_follow_items(parse_feed(xml, label), name, label)
 
-            results = await asyncio.gather(*(one(u, l) for u, l in sources))
+            results = await asyncio.gather(*(one(url, label) for url, label in sources))
             flat = [it for sub in results for it in sub]
             if not flat:
                 raise SourceUnavailable(f"No items found for {name}")
