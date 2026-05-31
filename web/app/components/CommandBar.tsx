@@ -18,6 +18,7 @@ const SUGGESTIONS: Suggestion[] = [
   { verb: "follow", label: "follow <name>", hint: "follow a person", needsArg: true },
   { verb: "watch", label: "watch <SYMBOL>", hint: "add to watchlist", needsArg: true },
   { verb: "cal", label: "cal", hint: "economic calendar", needsArg: false },
+  { verb: "settings", label: "settings", hint: "theme, text size, connections", needsArg: false },
 ];
 
 export default function CommandBar() {

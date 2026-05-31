@@ -12,6 +12,7 @@ const COMMANDS: [string, string][] = [
   ["unfollow <name>", "Stop following a person"],
   ["following", "Manage who you follow + see the aggregated feed"],
   ["cal", "Economic calendar (not implemented yet)"],
+  ["settings", "App settings — color theme, text size, connection status"],
   ["help", "This command list"],
 ];
 

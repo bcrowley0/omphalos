@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import CandleChart from "../components/CandleChart";
 import ChartControls from "../components/ChartControls";
 import { ResourceView, WidgetFrame } from "../components/ui";
@@ -8,10 +8,17 @@ import { resolveRange } from "../lib/chart/range";
 import type { Interval, Span } from "../lib/chart/range";
 import { loadChartData } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
+import { loadAppSettings } from "../lib/appSettings";
 
 export default function ChartWidget({ symbol }: { symbol: string }) {
-  const [span, setSpan] = useState<Span>("1M");
-  const [interval, setInterval] = useState<Interval>("1h");
+  // Initial range from the user's saved defaults (default 1M/1h), snapped to a
+  // valid span/interval pair.
+  const init = useMemo(() => {
+    const s = loadAppSettings();
+    return resolveRange(s.defaultSpan, s.defaultInterval);
+  }, []);
+  const [span, setSpan] = useState<Span>(init.span);
+  const [interval, setInterval] = useState<Interval>(init.interval);
 
   const load = useCallback(() => loadChartData(symbol, interval, span), [symbol, interval, span]);
   const { state, refresh } = useResource(load);

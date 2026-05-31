@@ -18,6 +18,11 @@ export async function loadHealth(): Promise<Schemas["HealthResponse"]> {
   return unwrap(data, error);
 }
 
+export async function loadStatus(): Promise<Schemas["StatusResponse"]> {
+  const { data, error } = await api.GET("/status", {});
+  return unwrap(data, error);
+}
+
 export async function loadChart(
   symbol: string,
   interval: Interval = "1d",

@@ -15,6 +15,7 @@ describe("commandToTab", () => {
     expect(tabFor("port")).toMatchObject({ id: "portfolio", widget: "portfolio" });
     expect(tabFor("yield")).toMatchObject({ id: "yield", widget: "yield" });
     expect(tabFor("cal")).toMatchObject({ id: "cal", widget: "cal" });
+    expect(tabFor("settings")).toMatchObject({ id: "settings", widget: "settings" });
     expect(tabFor("help")).toMatchObject({ id: "help", widget: "help" });
   });
 
