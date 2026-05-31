@@ -219,15 +219,16 @@ class IbkrAdapter(Adapter):
 
     async def get_auth_state(self) -> IbkrAuthState:
         """Probe the gateway and return one of the three connection states without
-        raising — backs the /ibkr/auth status endpoint. Reuses _ensure_session's
-        state machine: it raises for the not-connected states, which we translate
-        to plain string states here.
+        ever raising — backs the /ibkr/auth status endpoint (which has no error
+        handling of its own, so a raise here would be an unhandled 500). Reuses
+        _ensure_session's state machine: a not-logged-in gateway → "unauthenticated";
+        any other failure (unreachable, rate-limited, or unexpected) → "unreachable".
         """
         try:
             await self._ensure_session()
         except Unauthenticated:
             return "unauthenticated"
-        except SourceUnavailable:
+        except Exception:  # noqa: BLE001 - status probe must never raise (CLAUDE.md rule #6)
             return "unreachable"
         return "authenticated"
 

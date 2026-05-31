@@ -43,6 +43,13 @@ async def test_get_auth_state_unreachable_on_connect_error():
     assert await a.get_auth_state() == "unreachable"
 
 
+async def test_get_auth_state_unreachable_on_rate_limit():
+    # A 429 from the gateway maps to RateLimited in the HTTP layer; get_auth_state
+    # must still return a state (never raise), so the endpoint never 500s.
+    a = _adapter(lambda req: httpx.Response(429, text="too many requests"))
+    assert await a.get_auth_state() == "unreachable"
+
+
 def test_ibkr_auth_endpoint_reports_state_and_login_url(monkeypatch):
     from fastapi.testclient import TestClient
 
