@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.deps import get_registry
 from app.main import app
+from app.models import MarginSummary, Position
 
 client = TestClient(app)
 
@@ -54,10 +55,7 @@ def test_chart_echoes_resolved_interval_and_span():
     assert len(body["candles"]) == 1
 
 
-from app.models import MarginSummary, Position
-
-
-def test_portfolio_merges_kraken_margin_and_summary():
+def test_portfolio_merges_kraken_margin_and_summary(monkeypatch):
     kraken = get_registry().get("kraken")
     ibkr = get_registry().get("ibkr")
 
@@ -75,10 +73,10 @@ def test_portfolio_merges_kraken_margin_and_summary():
         return MarginSummary(equity=10000, used_margin=2000, free_margin=8000, margin_level=500,
                              unrealized_pnl=150, cost_basis=1900, valuation=2050)
 
-    ibkr.get_positions = _positions
-    kraken.get_balances = _balances
-    kraken.get_open_positions = _open_positions
-    kraken.get_trade_balance = _trade_balance
+    monkeypatch.setattr(ibkr, "get_positions", _positions)
+    monkeypatch.setattr(kraken, "get_balances", _balances)
+    monkeypatch.setattr(kraken, "get_open_positions", _open_positions)
+    monkeypatch.setattr(kraken, "get_trade_balance", _trade_balance)
 
     r = client.get("/portfolio")
     assert r.status_code == 200
