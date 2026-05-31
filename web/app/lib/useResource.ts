@@ -60,7 +60,12 @@ export function useResource<T>(load: () => Promise<T>, auto?: AutoRefreshOptions
     setIsRefreshing(true);
     try {
       const data = await load();
-      setState({ kind: "ok", data });
+      // Only swap in a healthy snapshot. On a degraded result, keep the last
+      // good data on screen and just stop auto-refreshing (a background tick
+      // must never blank the widget to a status notice — spec, rule 5).
+      if (!isHealthy || isHealthy(data)) {
+        setState({ kind: "ok", data });
+      }
       if (isHealthy && !isHealthy(data)) {
         onAutoDisabled?.("auto-refresh paused — source unavailable");
       }
