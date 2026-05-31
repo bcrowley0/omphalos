@@ -19,7 +19,7 @@ from typing import Any
 from ..cache import cache
 from ..config import get_settings
 from ..http import get_json, post_form
-from ..models import Balance, Candle, Interval, INTERVAL_MS, Quote, Span, SPAN_MS
+from ..models import INTERVAL_MS, SPAN_MS, Balance, Candle, Interval, Quote, Span
 from .base import Adapter, RateLimited, SourceUnavailable, Unauthenticated
 
 _API_ROOT = "https://api.kraken.com"
@@ -47,8 +47,9 @@ def sign_request(path: str, data: dict[str, Any], b64_secret: str) -> str:
     return base64.b64encode(mac.digest()).decode()
 
 
-# Kraken legacy asset codes -> canonical. Z* are fiat, X* are crypto (4-char).
-_ASSET_ALIASES = {"XBT": "BTC", "XDG": "DOGE"}
+# Kraken legacy asset codes -> canonical: the inverse of _BASE_ALIASES, derived
+# from it so the two directions can't drift. Z* are fiat, X* are crypto (4-char).
+_ASSET_ALIASES = {kraken: canonical for canonical, kraken in _BASE_ALIASES.items()}
 
 
 def normalize_asset(code: str) -> str:
@@ -128,13 +129,23 @@ def kraken_ohlc_params(interval: Interval, span: Span, now_ms: int) -> tuple[int
     return minutes, since_s
 
 
-def _check_error(payload: dict[str, Any]) -> None:
+# Kraken signals failures via an `error` array even on HTTP 200. Map it to a
+# canonical adapter exception. Public and private endpoints share rate-limit and
+# generic handling; only signed (private) calls can fail auth, so the auth
+# markers are consulted only when `private` is set.
+_AUTH_ERROR_MARKERS = ("invalid key", "permission denied", "invalid signature")
+
+
+def _raise_for_error(payload: dict[str, Any], *, private: bool = False) -> None:
     errors = payload.get("error") or []
     if not errors:
         return
     joined = "; ".join(errors)
-    if "rate limit" in joined.lower():
+    lowered = joined.lower()
+    if "rate limit" in lowered:
         raise RateLimited(f"kraken: {joined}")
+    if private and any(marker in lowered for marker in _AUTH_ERROR_MARKERS):
+        raise Unauthenticated(f"kraken: {joined}")
     raise SourceUnavailable(f"kraken: {joined}")
 
 
@@ -149,12 +160,13 @@ def _first_result(payload: dict[str, Any], *, skip: AbstractSet[str] = frozenset
 
 def parse_ticker(payload: dict[str, Any], symbol: str) -> Quote:
     """Pure: Kraken Ticker payload -> canonical Quote."""
-    _check_error(payload)
+    _raise_for_error(payload)
     t = _first_result(payload)
     last = float(t["c"][0])
     bid = float(t["b"][0])
     ask = float(t["a"][0])
-    open_ = float(t["o"]) if not isinstance(t["o"], list) else float(t["o"][0])
+    raw_open = t["o"][0] if isinstance(t["o"], list) else t["o"]
+    open_ = float(raw_open)
     change = round(last - open_, 8)
     change_pct = round((change / open_) * 100, 4) if open_ else 0.0
     return Quote(
@@ -172,7 +184,7 @@ def parse_ticker(payload: dict[str, Any], symbol: str) -> Quote:
 
 def parse_ohlc(payload: dict[str, Any]) -> list[Candle]:
     """Pure: Kraken OHLC payload -> canonical Candles (seconds -> ms)."""
-    _check_error(payload)
+    _raise_for_error(payload)
     rows = _first_result(payload, skip={"last"})
     candles: list[Candle] = []
     for row in rows:
@@ -239,17 +251,5 @@ class KrakenAdapter(Adapter):
             data=data,
             headers={"API-Key": key, "API-Sign": api_sign},
         )
-        self._raise_for_private_error(payload)
+        _raise_for_error(payload, private=True)
         return parse_balances(payload)
-
-    @staticmethod
-    def _raise_for_private_error(payload: dict[str, Any]) -> None:
-        errors = payload.get("error") or []
-        if not errors:
-            return
-        joined = "; ".join(errors).lower()
-        if "rate limit" in joined:
-            raise RateLimited(f"kraken: {'; '.join(payload['error'])}")
-        if "invalid key" in joined or "permission denied" in joined or "invalid signature" in joined:
-            raise Unauthenticated(f"kraken: {'; '.join(payload['error'])}")
-        raise SourceUnavailable(f"kraken: {'; '.join(payload['error'])}")
