@@ -1,6 +1,6 @@
 """Unit tests for Kraken normalization (pure functions, no network)."""
 
-from app.adapters.kraken import krakenize_pair, parse_ohlc, parse_ticker
+from app.adapters.kraken import krakenize_pair, normalize_pair, parse_ohlc, parse_ticker
 from app.adapters.base import RateLimited, SourceUnavailable
 from app.models import MarginSummary, Position, PortfolioResponse
 import pytest
@@ -70,6 +70,19 @@ def test_parse_ohlc_converts_seconds_to_ms():
     c = candles[0]
     assert c.t == 1717891200 * 1000  # seconds -> ms
     assert (c.o, c.h, c.l, c.c, c.v) == (69291.5, 69809.8, 69155.3, 69649.9, 421.24)
+
+
+def test_normalize_pair_legacy_codes():
+    assert normalize_pair("XXBTZUSD") == "BTC/USD"
+    assert normalize_pair("XETHZUSD") == "ETH/USD"
+
+
+def test_normalize_pair_modern_codes():
+    assert normalize_pair("USDTUSD") == "USDT/USD"
+
+
+def test_normalize_pair_unmappable_falls_back_to_raw():
+    assert normalize_pair("WEIRDXYZ") == "WEIRDXYZ"
 
 
 def test_parse_errors_are_mapped():

@@ -109,6 +109,26 @@ def krakenize_pair(pair: str) -> str:
     return f"{base}{quote}"
 
 
+# Known quote suffixes in Kraken pair names, longest first so e.g. ZUSD wins
+# over a bare USD match. Each is matched against the END of the pair string.
+_QUOTE_SUFFIXES = ("ZUSD", "ZEUR", "ZGBP", "ZJPY", "ZCAD", "USDT", "USDC", "USD", "EUR", "GBP", "JPY")
+
+
+def normalize_pair(pair: str) -> str:
+    """Kraken pair name (`XXBTZUSD`) -> canonical `BTC/USD`. Pure/testable.
+
+    Splits on a known quote suffix, normalizes both halves via normalize_asset.
+    Falls back to the raw pair if no known suffix matches (never drops a row).
+    """
+    p = pair.upper()
+    for suffix in _QUOTE_SUFFIXES:
+        if p.endswith(suffix) and len(p) > len(suffix):
+            base = normalize_asset(p[: -len(suffix)])
+            quote = normalize_asset(suffix)
+            return f"{base}/{quote}"
+    return pair
+
+
 def kraken_ohlc_params(interval: Interval, span: Span, now_ms: int) -> tuple[int, int]:
     """Map canonical (interval, span) to Kraken OHLC params.
 
