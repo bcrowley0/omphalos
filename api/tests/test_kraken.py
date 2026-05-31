@@ -1,8 +1,38 @@
 """Unit tests for Kraken normalization (pure functions, no network)."""
 
-from app.adapters.kraken import krakenize_pair, parse_ohlc, parse_ticker
+from app.adapters.kraken import (
+    krakenize_pair,
+    normalize_pair,
+    parse_ohlc,
+    parse_open_positions,
+    parse_ticker,
+    parse_trade_balance,
+)
 from app.adapters.base import RateLimited, SourceUnavailable
+from app.models import MarginSummary, Position, PortfolioResponse
 import pytest
+
+
+def test_position_margin_fields_default_to_none():
+    p = Position(symbol="AAPL", qty=1, avg_cost=1, market_value=1, unrealized_pnl=0, source="ibkr")
+    assert p.side is None
+    assert p.margin_used is None
+
+
+def test_margin_summary_serializes_camelcase():
+    ms = MarginSummary(
+        equity=1000.0, used_margin=200.0, free_margin=800.0, margin_level=500.0,
+        unrealized_pnl=10.0, cost_basis=190.0, valuation=200.0,
+    )
+    dumped = ms.model_dump(by_alias=True)
+    assert dumped["usedMargin"] == 200.0
+    assert dumped["marginLevel"] == 500.0
+    assert dumped["source"] == "kraken"
+
+
+def test_portfolio_response_has_margin_summary_default_none():
+    r = PortfolioResponse(status="ok")
+    assert r.margin_summary is None
 
 
 def test_krakenize_maps_btc_to_xbt():
@@ -47,6 +77,87 @@ def test_parse_ohlc_converts_seconds_to_ms():
     c = candles[0]
     assert c.t == 1717891200 * 1000  # seconds -> ms
     assert (c.o, c.h, c.l, c.c, c.v) == (69291.5, 69809.8, 69155.3, 69649.9, 421.24)
+
+
+def test_normalize_pair_legacy_codes():
+    assert normalize_pair("XXBTZUSD") == "BTC/USD"
+    assert normalize_pair("XETHZUSD") == "ETH/USD"
+
+
+def test_normalize_pair_modern_codes():
+    assert normalize_pair("USDTUSD") == "USDT/USD"
+
+
+def test_normalize_pair_unmappable_falls_back_to_raw():
+    assert normalize_pair("WEIRDXYZ") == "WEIRDXYZ"
+
+
+def test_parse_open_positions_maps_fields_and_side():
+    payload = {
+        "error": [],
+        "result": {
+            "TX1": {
+                "pair": "XXBTZUSD", "type": "buy", "vol": "0.5",
+                "cost": "20000.0", "margin": "4000.0", "value": "21000.0", "net": "1000.0",
+            },
+            "TX2": {
+                "pair": "XETHZUSD", "type": "sell", "vol": "2.0",
+                "cost": "6000.0", "margin": "1200.0", "value": "5800.0", "net": "200.0",
+            },
+        },
+    }
+    by_symbol = {p.symbol: p for p in parse_open_positions(payload)}
+    assert set(by_symbol) == {"BTC/USD", "ETH/USD"}
+    btc = by_symbol["BTC/USD"]
+    assert btc.side == "long"
+    assert btc.qty == 0.5
+    assert btc.avg_cost == 40000.0  # cost / vol
+    assert btc.market_value == 21000.0
+    assert btc.unrealized_pnl == 1000.0
+    assert btc.margin_used == 4000.0
+    assert btc.source == "kraken"
+    assert by_symbol["ETH/USD"].side == "short"
+
+
+def test_parse_open_positions_empty_result_is_empty_list():
+    assert parse_open_positions({"error": [], "result": {}}) == []
+
+
+def test_parse_open_positions_zero_vol_avg_cost_is_zero():
+    payload = {
+        "error": [],
+        "result": {
+            "TX1": {"pair": "XXBTZUSD", "type": "buy", "vol": "0", "cost": "0.0",
+                    "margin": "0.0", "value": "0.0", "net": "0.0"},
+        },
+    }
+    positions = parse_open_positions(payload)
+    assert len(positions) == 1
+    assert positions[0].avg_cost == 0.0
+
+
+def test_parse_trade_balance_maps_field_codes():
+    payload = {
+        "error": [],
+        "result": {
+            "e": "10000.0", "m": "2000.0", "mf": "8000.0", "ml": "500.0",
+            "n": "150.0", "c": "1900.0", "v": "2050.0",
+        },
+    }
+    ms = parse_trade_balance(payload)
+    assert ms.equity == 10000.0
+    assert ms.used_margin == 2000.0
+    assert ms.free_margin == 8000.0
+    assert ms.margin_level == 500.0
+    assert ms.unrealized_pnl == 150.0
+    assert ms.cost_basis == 1900.0
+    assert ms.valuation == 2050.0
+    assert ms.source == "kraken"
+
+
+def test_parse_trade_balance_missing_ml_is_none():
+    payload = {"error": [], "result": {"e": "100.0", "m": "0.0", "mf": "100.0", "n": "0.0", "c": "0.0", "v": "0.0"}}
+    assert parse_trade_balance(payload).margin_level is None
 
 
 def test_parse_errors_are_mapped():

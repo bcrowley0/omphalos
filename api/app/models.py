@@ -119,6 +119,8 @@ class Position(CamelModel):
     market_value: float
     unrealized_pnl: float
     source: str
+    side: str | None = None  # "long" | "short" — Kraken margin only
+    margin_used: float | None = None  # margin committed to this position
 
 
 class Balance(CamelModel):
@@ -126,6 +128,17 @@ class Balance(CamelModel):
     total: float
     available: float
     source: str
+
+
+class MarginSummary(CamelModel):
+    equity: float  # e  = trade balance + unrealized P&L
+    used_margin: float  # m  = margin of open positions
+    free_margin: float  # mf = equity - initial margin
+    margin_level: float | None = None  # ml = (equity/initial margin)*100; None when no positions
+    unrealized_pnl: float  # n
+    cost_basis: float  # c
+    valuation: float  # v  = floating valuation of open positions
+    source: str = "kraken"
 
 
 class NewsItem(CamelModel):
@@ -180,6 +193,7 @@ class PortfolioResponse(CamelModel):
     message: str | None = None
     positions: list[Position] = []
     balances: list[Balance] = []
+    margin_summary: MarginSummary | None = None
 
 
 class YieldCurveResponse(CamelModel):

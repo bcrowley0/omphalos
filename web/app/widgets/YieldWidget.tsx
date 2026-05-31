@@ -49,11 +49,12 @@ function CurveSvg({ curves, tenors }: { curves: RenderCurve[]; tenors: string[] 
         const path = pts
           .map((p, j) => `${j === 0 ? "M" : "L"} ${x(idx.get(p.tenorLabel)!).toFixed(1)} ${y(p.ratePct).toFixed(1)}`)
           .join(" ");
+        const isToday = c.key === "current";
         return (
           <g key={c.key}>
-            <path d={path} fill="none" stroke={c.color} strokeWidth={2} />
+            <path d={path} fill="none" stroke={c.color} strokeWidth={isToday ? 2 : 1} />
             {pts.map((p) => (
-              <circle key={p.tenorLabel} cx={x(idx.get(p.tenorLabel)!)} cy={y(p.ratePct)} r={3} fill={c.color} />
+              <circle key={p.tenorLabel} cx={x(idx.get(p.tenorLabel)!)} cy={y(p.ratePct)} r={isToday ? 3 : 1.5} fill={c.color} />
             ))}
           </g>
         );
