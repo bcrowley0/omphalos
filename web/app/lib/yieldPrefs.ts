@@ -17,12 +17,28 @@ export function compareKey(c: CompareCurve): string {
   return c.kind === "relative" ? c.period : c.date;
 }
 
+// Canonical shortest → longest lookback ordering for relative curves.
+const PERIOD_ORDER: ComparePeriod[] = ["1d", "1w", "1m", "3m", "6m", "1y"];
+
+// Sort relative curves into logical low-to-high order; keep exact-date curves
+// after them in their existing (insertion) order.
+function sortCompares(compares: CompareCurve[]): CompareCurve[] {
+  const rel = compares
+    .filter((c) => c.kind === "relative")
+    .sort((a, b) => PERIOD_ORDER.indexOf((a as Extract<CompareCurve, { kind: "relative" }>).period)
+      - PERIOD_ORDER.indexOf((b as Extract<CompareCurve, { kind: "relative" }>).period));
+  const exact = compares.filter((c) => c.kind === "exact");
+  return [...rel, ...exact];
+}
+
 // Default: chart shows current + 1w; all six relative Δ columns shown.
+// Relative curves are ordered shortest → longest lookback (1d, 1w, 1m, …) so the
+// settings popover and Δ columns read in logical low-to-high order.
 export const DEFAULT_YIELD_PREFS: YieldPrefs = {
   currentOnChart: true,
   compares: [
-    { kind: "relative", period: "1w", onChart: true, showDelta: true },
     { kind: "relative", period: "1d", onChart: false, showDelta: true },
+    { kind: "relative", period: "1w", onChart: true, showDelta: true },
     { kind: "relative", period: "1m", onChart: false, showDelta: true },
     { kind: "relative", period: "3m", onChart: false, showDelta: true },
     { kind: "relative", period: "6m", onChart: false, showDelta: true },
@@ -72,7 +88,7 @@ export function loadYieldPrefs(): YieldPrefs {
     if (!Array.isArray(parsed.compares)) return DEFAULT_YIELD_PREFS;
     return {
       currentOnChart: typeof parsed.currentOnChart === "boolean" ? parsed.currentOnChart : true,
-      compares: parsed.compares as CompareCurve[],
+      compares: sortCompares(parsed.compares as CompareCurve[]),
     };
   } catch {
     return DEFAULT_YIELD_PREFS;

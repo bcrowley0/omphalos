@@ -15,7 +15,7 @@ describe("yieldPrefs", () => {
     const onChart = DEFAULT_YIELD_PREFS.compares.filter((c) => c.onChart).map(compareKey);
     expect(onChart).toEqual(["1w"]);
     const deltas = DEFAULT_YIELD_PREFS.compares.filter((c) => c.showDelta).map(compareKey);
-    expect(deltas).toEqual(["1w", "1d", "1m", "3m", "6m", "1y"]);
+    expect(deltas).toEqual(["1d", "1w", "1m", "3m", "6m", "1y"]);
   });
 
   it("toggleChart / toggleDelta flip the matching compare by key", () => {
