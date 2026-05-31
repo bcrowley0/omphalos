@@ -4,6 +4,7 @@
 !**/.env.example
 
 # ---- Python (api/) ----
+.venv
 .venv/
 __pycache__/
 *.py[cod]
@@ -23,3 +24,9 @@ next-env.d.ts
 *.log
 .idea/
 .vscode/
+
+# ---- Local dev convenience (not part of the repo) ----
+dev.sh
+go.sh
+dev-servers.log
+.worktrees/
