@@ -27,8 +27,13 @@ conflicts with this file, follow this file and flag the conflict.**
    crash the app.
 4. Read-only v1. No order entry. Leave `place_order` stubbed (raises
    `NotImplementedError`); do not expose it.
-5. Snapshot / on-demand only. No websockets or streaming. Data loads on widget
-   open and on an explicit refresh.
+5. Snapshot / on-demand by default. No websockets or streaming. Data loads on
+   widget open and on an explicit refresh. A widget MAY be opted into bounded
+   auto-refresh via an off-by-default per-widget toggle (live-data widgets only:
+   quote, watchlist, portfolio, chart), with a fixed interval ≥ the source's
+   cache TTL, paused when the tab is hidden, and auto-disabled on
+   source-down / rate-limited / unauthenticated / transport errors. Never refresh
+   a source faster than its cache TTL; still no websockets or streaming.
 6. Every external call has an explicit, visible UI state for: loading, source-down,
    unauthenticated, rate-limited, and empty/missing-fields. Never an unhandled crash.
 
