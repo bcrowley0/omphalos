@@ -21,8 +21,11 @@ import type { Schemas, YieldPoint } from "../lib/api/client";
 
 type AsOfCurve = Schemas["AsOfCurve"];
 
-// Distinct colors for overlaid comparison curves (current uses --accent).
-const PALETTE = ["#e0a458", "#5fb3b3", "#c08497", "#7b9e89", "#9a8fb3", "#b3915f"];
+// Vivid, mutually-distinct colors for overlaid comparison curves. Saturated so
+// they pop on the dark background, and all clear of the green "current" curve
+// (--accent) — no greens — for legibility (and red/green-colorblind safety). Led
+// by blue (max contrast vs green) since the first slot is the default 1w overlay.
+const PALETTE = ["#4c8dff", "#f5b833", "#ff5fb4", "#a06bff", "#ff8a3d", "#2bc8d4"];
 
 type RenderCurve = { key: string; label: string; color: string; points: YieldPoint[] };
 
