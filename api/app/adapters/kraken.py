@@ -285,14 +285,15 @@ class KrakenAdapter(Adapter):
         return parse_ohlc(payload)
 
     # -- private (signed) -------------------------------------------------- #
-    async def get_balances(self) -> list[Balance]:
+    async def _signed_post(self, path: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         settings = get_settings()
         key, secret = settings.kraken_api_key, settings.kraken_api_secret
         if not key or not secret:
             raise Unauthenticated("Kraken API key/secret not set in api/.env")
 
-        path = "/0/private/BalanceEx"
-        data = {"nonce": _nonce.next()}
+        data: dict[str, Any] = {"nonce": _nonce.next()}
+        if extra:
+            data.update(extra)
         try:
             api_sign = sign_request(path, data, secret)
         except (ValueError, binascii.Error) as exc:  # malformed secret
@@ -306,7 +307,19 @@ class KrakenAdapter(Adapter):
             headers={"API-Key": key, "API-Sign": api_sign},
         )
         self._raise_for_private_error(payload)
+        return payload
+
+    async def get_balances(self) -> list[Balance]:
+        payload = await self._signed_post("/0/private/BalanceEx")
         return parse_balances(payload)
+
+    async def get_open_positions(self) -> list[Position]:
+        payload = await self._signed_post("/0/private/OpenPositions", {"docalcs": "true"})
+        return parse_open_positions(payload)
+
+    async def get_trade_balance(self) -> MarginSummary:
+        payload = await self._signed_post("/0/private/TradeBalance")
+        return parse_trade_balance(payload)
 
     @staticmethod
     def _raise_for_private_error(payload: dict[str, Any]) -> None:
