@@ -19,7 +19,7 @@ from typing import Any
 from ..cache import cache
 from ..config import get_settings
 from ..http import get_json, post_form
-from ..models import INTERVAL_MS, SPAN_MS, Balance, Candle, Interval, Quote, Span
+from ..models import INTERVAL_MS, SPAN_MS, Balance, Candle, Interval, MarginSummary, Position, Quote, Span
 from .base import Adapter, RateLimited, SourceUnavailable, Unauthenticated
 
 _API_ROOT = "https://api.kraken.com"
@@ -103,11 +103,77 @@ def parse_balances(payload: dict[str, Any]) -> list[Balance]:
     return out
 
 
+def parse_open_positions(payload: dict[str, Any]) -> list[Position]:
+    """Pure: Kraken OpenPositions payload (docalcs=true) -> canonical Positions.
+
+    Result is { txid: {pair, type, vol, cost, margin, value, net}, ... }.
+    `type` buy->long, sell->short. avg_cost is per-unit (cost/vol).
+    """
+    result = payload.get("result") or {}
+    out: list[Position] = []
+    for info in result.values():
+        vol = float(info.get("vol", 0) or 0)
+        cost = float(info.get("cost", 0) or 0)
+        out.append(
+            Position(
+                symbol=normalize_pair(str(info.get("pair", ""))),
+                side="long" if info.get("type") == "buy" else "short",
+                qty=vol,
+                avg_cost=(cost / vol) if vol else 0.0,
+                market_value=float(info.get("value", 0) or 0),
+                unrealized_pnl=float(info.get("net", 0) or 0),
+                margin_used=float(info.get("margin", 0) or 0),
+                source="kraken",
+            )
+        )
+    return out
+
+
+def parse_trade_balance(payload: dict[str, Any]) -> MarginSummary:
+    """Pure: Kraken TradeBalance payload -> canonical MarginSummary.
+
+    Field codes: e=equity, m=used margin, mf=free margin, ml=margin level %
+    (absent when no open positions), n=unrealized P&L, c=cost basis, v=valuation.
+    """
+    r = payload.get("result") or {}
+    ml = r.get("ml")
+    return MarginSummary(
+        equity=float(r.get("e", 0) or 0),
+        used_margin=float(r.get("m", 0) or 0),
+        free_margin=float(r.get("mf", 0) or 0),
+        margin_level=float(ml) if ml is not None else None,
+        unrealized_pnl=float(r.get("n", 0) or 0),
+        cost_basis=float(r.get("c", 0) or 0),
+        valuation=float(r.get("v", 0) or 0),
+        source="kraken",
+    )
+
+
 def krakenize_pair(pair: str) -> str:
     """`BTC/USD` -> `XBTUSD` (Kraken altname). Pure/testable."""
     base, _, quote = pair.upper().partition("/")
     base = _BASE_ALIASES.get(base, base)
     return f"{base}{quote}"
+
+
+# Known quote suffixes in Kraken pair names, longest first so e.g. ZUSD wins
+# over a bare USD match. Each is matched against the END of the pair string.
+_QUOTE_SUFFIXES = ("ZUSD", "ZEUR", "ZGBP", "ZJPY", "ZCAD", "USDT", "USDC", "USD", "EUR", "GBP", "JPY")
+
+
+def normalize_pair(pair: str) -> str:
+    """Kraken pair name (`XXBTZUSD`) -> canonical `BTC/USD`. Pure/testable.
+
+    Splits on a known quote suffix, normalizes both halves via normalize_asset.
+    Falls back to the raw pair if no known suffix matches (never drops a row).
+    """
+    p = pair.upper()
+    for suffix in _QUOTE_SUFFIXES:
+        if p.endswith(suffix) and len(p) > len(suffix):
+            base = normalize_asset(p[: -len(suffix)])
+            quote = normalize_asset(suffix)
+            return f"{base}/{quote}"
+    return pair
 
 
 def kraken_ohlc_params(interval: Interval, span: Span, now_ms: int) -> tuple[int, int]:
@@ -231,14 +297,15 @@ class KrakenAdapter(Adapter):
         return parse_ohlc(payload)
 
     # -- private (signed) -------------------------------------------------- #
-    async def get_balances(self) -> list[Balance]:
+    async def _signed_post(self, path: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         settings = get_settings()
         key, secret = settings.kraken_api_key, settings.kraken_api_secret
         if not key or not secret:
             raise Unauthenticated("Kraken API key/secret not set in api/.env")
 
-        path = "/0/private/BalanceEx"
-        data = {"nonce": _nonce.next()}
+        data: dict[str, Any] = {"nonce": _nonce.next()}
+        if extra:
+            data.update(extra)
         try:
             api_sign = sign_request(path, data, secret)
         except (ValueError, binascii.Error) as exc:  # malformed secret
@@ -252,4 +319,16 @@ class KrakenAdapter(Adapter):
             headers={"API-Key": key, "API-Sign": api_sign},
         )
         _raise_for_error(payload, private=True)
+        return payload
+
+    async def get_balances(self) -> list[Balance]:
+        payload = await self._signed_post("/0/private/BalanceEx")
         return parse_balances(payload)
+
+    async def get_open_positions(self) -> list[Position]:
+        payload = await self._signed_post("/0/private/OpenPositions", {"docalcs": "true"})
+        return parse_open_positions(payload)
+
+    async def get_trade_balance(self) -> MarginSummary:
+        payload = await self._signed_post("/0/private/TradeBalance")
+        return parse_trade_balance(payload)

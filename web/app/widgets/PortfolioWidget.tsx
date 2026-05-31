@@ -20,7 +20,7 @@ export default function PortfolioWidget() {
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <section>
               <h3 style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "0.4rem" }}>
-                POSITIONS (IBKR)
+                POSITIONS (IBKR + Kraken margin)
               </h3>
               {data.positions.length === 0 ? (
                 <p style={{ color: "var(--muted)" }}>No positions.</p>
@@ -29,19 +29,23 @@ export default function PortfolioWidget() {
                   <thead>
                     <tr>
                       <th style={{ ...th, textAlign: "left" }}>Symbol</th>
+                      <th style={{ ...th, textAlign: "left" }}>Side</th>
                       <th style={th}>Qty</th>
                       <th style={th}>Avg Cost</th>
                       <th style={th}>Mkt Value</th>
+                      <th style={th}>Margin</th>
                       <th style={th}>Unrl P&amp;L</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.positions.map((p) => (
-                      <tr key={p.symbol} style={{ borderTop: "1px solid var(--border)" }}>
+                      <tr key={`${p.source}:${p.symbol}:${p.side ?? ""}`} style={{ borderTop: "1px solid var(--border)" }}>
                         <td style={tdl}>{p.symbol}</td>
+                        <td style={tdl}>{p.side ?? "—"}</td>
                         <td style={td}>{fmt(p.qty, 0)}</td>
                         <td style={td}>{fmt(p.avgCost)}</td>
                         <td style={td}>{fmt(p.marketValue)}</td>
+                        <td style={td}>{fmt(p.marginUsed)}</td>
                         <td style={{ ...td, color: signColor(p.unrealizedPnl) }}>{fmt(p.unrealizedPnl)}</td>
                       </tr>
                     ))}
@@ -77,6 +81,32 @@ export default function PortfolioWidget() {
                 </table>
               )}
             </section>
+
+            {data.marginSummary && (
+              <section>
+                <h3 style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "0.4rem" }}>
+                  MARGIN SUMMARY (Kraken)
+                </h3>
+                <table style={{ borderCollapse: "collapse" }}>
+                  <tbody>
+                    {([
+                      ["Equity", fmt(data.marginSummary.equity)],
+                      ["Used Margin", fmt(data.marginSummary.usedMargin)],
+                      ["Free Margin", fmt(data.marginSummary.freeMargin)],
+                      ["Margin Level %", fmt(data.marginSummary.marginLevel)],
+                      ["Unrealized P&L", fmt(data.marginSummary.unrealizedPnl)],
+                      ["Cost Basis", fmt(data.marginSummary.costBasis)],
+                      ["Valuation", fmt(data.marginSummary.valuation)],
+                    ] as const).map(([label, value]) => (
+                      <tr key={label} style={{ borderTop: "1px solid var(--border)" }}>
+                        <td style={{ ...tdl, color: "var(--muted)" }}>{label}</td>
+                        <td style={td}>{value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            )}
           </div>
         )}
       </ResourceView>

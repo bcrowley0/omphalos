@@ -35,6 +35,7 @@ from .models import (
     FollowItem,
     Interval,
     KeysUpdateRequest,
+    MarginSummary,
     NewsResponse,
     PeopleFeedRequest,
     PeopleFeedResponse,
@@ -141,6 +142,7 @@ async def quote(symbol: str = Query(...)) -> QuoteResponse:
 async def portfolio() -> PortfolioResponse:
     positions: list[Position] = []
     balances: list[Balance] = []
+    margin_summary: MarginSummary | None = None
     messages: list[str] = []
     sub_statuses: list[SourceStatus] = []
 
@@ -165,9 +167,22 @@ async def portfolio() -> PortfolioResponse:
             sub_statuses.append(st)
             messages.append(f"balances: {msg}")
 
-    # If either source returned rows, the portfolio is usable -> OK (partial).
-    # Otherwise pick the most actionable sub-status (auth > rate > down).
-    if positions or balances:
+        try:
+            positions = positions + await kraken.get_open_positions()
+        except Exception as exc:  # noqa: BLE001
+            st, msg = _status_from_exc(exc)
+            sub_statuses.append(st)
+            messages.append(f"margin positions: {msg}")
+
+        try:
+            margin_summary = await kraken.get_trade_balance()
+        except Exception as exc:  # noqa: BLE001
+            st, msg = _status_from_exc(exc)
+            sub_statuses.append(st)
+            messages.append(f"margin summary: {msg}")
+
+    # Any data at all -> OK (partial). Otherwise the most actionable sub-status.
+    if positions or balances or margin_summary is not None:
         status = SourceStatus.OK
     elif SourceStatus.UNAUTHENTICATED in sub_statuses:
         status = SourceStatus.UNAUTHENTICATED
@@ -182,6 +197,7 @@ async def portfolio() -> PortfolioResponse:
         message="; ".join(messages) or None,
         positions=positions,
         balances=balances,
+        margin_summary=margin_summary,
     )
 
 
