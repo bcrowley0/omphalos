@@ -175,6 +175,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/status/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update Keys
+         * @description Local-first key entry (localhost only): write the supplied non-empty keys
+         *     into api/.env and hot-reload settings. Returns the refreshed status only —
+         *     key VALUES are never returned to the browser.
+         */
+        post: operations["update_keys_status_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -342,6 +364,15 @@ export interface components {
          * @enum {string}
          */
         Interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w";
+        /** KeysUpdateRequest */
+        KeysUpdateRequest: {
+            /** Fredapikey */
+            fredApiKey?: string | null;
+            /** Krakenapikey */
+            krakenApiKey?: string | null;
+            /** Krakenapisecret */
+            krakenApiSecret?: string | null;
+        };
         /** NewsItem */
         NewsItem: {
             /** Title */
@@ -829,6 +860,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_keys_status_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeysUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

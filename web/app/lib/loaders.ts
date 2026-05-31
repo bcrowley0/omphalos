@@ -23,6 +23,13 @@ export async function loadStatus(): Promise<Schemas["StatusResponse"]> {
   return unwrap(data, error);
 }
 
+// Local-first key entry: write keys to api/.env via the localhost backend. Only
+// non-empty fields are sent; the response carries status only, never key values.
+export async function saveKeys(body: Schemas["KeysUpdateRequest"]): Promise<Schemas["StatusResponse"]> {
+  const { data, error } = await api.POST("/status/keys", { body });
+  return unwrap(data, error);
+}
+
 export async function loadChart(
   symbol: string,
   interval: Interval = "1d",

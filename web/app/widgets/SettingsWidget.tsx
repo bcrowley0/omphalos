@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
 import { WidgetFrame } from "../components/ui";
-import { loadStatus } from "../lib/loaders";
+import { loadStatus, saveKeys } from "../lib/loaders";
 import { useResource } from "../lib/useResource";
 import {
   type AppSettings,
@@ -51,6 +51,33 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+// Write-only password input for a key (never prefilled with an existing value).
+function KeyInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+      <span style={{ width: "8rem", fontSize: "0.85rem", color: "var(--muted)" }}>{label}</span>
+      <input
+        type="password"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="off"
+        placeholder="paste to set"
+        style={{
+          flex: 1,
+          maxWidth: "18rem",
+          background: "var(--background)",
+          color: "var(--foreground)",
+          border: "1px solid var(--border)",
+          borderRadius: 6,
+          padding: "0.25rem 0.5rem",
+          fontFamily: "inherit",
+          fontSize: "0.82rem",
+        }}
+      />
+    </div>
+  );
+}
+
 export default function SettingsWidget() {
   const [settings, setSettingsState] = useState<AppSettings>(() => loadAppSettings());
   // Persist + apply to the document on every change so the effect is immediate.
@@ -62,6 +89,35 @@ export default function SettingsWidget() {
 
   const statusLoad = useCallback(() => loadStatus(), []);
   const { state, refresh } = useResource(statusLoad);
+
+  // Local-first key entry. Inputs are write-only: never prefilled, cleared after
+  // save. Keys go to the localhost backend → api/.env; never read back here.
+  const [fredKey, setFredKey] = useState("");
+  const [krakenKey, setKrakenKey] = useState("");
+  const [krakenSecret, setKrakenSecret] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const dirty = Boolean(fredKey || krakenKey || krakenSecret);
+  const saveAllKeys = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await saveKeys({
+        fredApiKey: fredKey || undefined,
+        krakenApiKey: krakenKey || undefined,
+        krakenApiSecret: krakenSecret || undefined,
+      });
+      setFredKey("");
+      setKrakenKey("");
+      setKrakenSecret("");
+      refresh(); // re-fetch /status so the configured dots update
+    } catch {
+      setSaveError("couldn't save keys — is the backend running?");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <WidgetFrame title="Settings" onRefresh={refresh} busy={state.kind === "loading"}>
@@ -140,9 +196,34 @@ export default function SettingsWidget() {
                 <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>{s.detail}</span>
               </div>
             ))}
-            <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.3rem" }}>
-              Keys live only in <code>api/.env</code> — never entered here.
-            </p>
+            <div style={{ marginTop: "0.8rem", display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+              <KeyInput label="FRED key" value={fredKey} onChange={setFredKey} />
+              <KeyInput label="Kraken key" value={krakenKey} onChange={setKrakenKey} />
+              <KeyInput label="Kraken secret" value={krakenSecret} onChange={setKrakenSecret} />
+              <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", marginTop: "0.2rem" }}>
+                <button
+                  onClick={saveAllKeys}
+                  disabled={!dirty || saving}
+                  style={{
+                    background: "var(--accent)",
+                    color: "#0b0e14",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "0.3rem 0.9rem",
+                    cursor: dirty && !saving ? "pointer" : "default",
+                    opacity: dirty && !saving ? 1 : 0.5,
+                    fontFamily: "inherit",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {saving ? "saving…" : "Save keys"}
+                </button>
+                {saveError && <span style={{ color: "var(--error)", fontSize: "0.78rem" }}>{saveError}</span>}
+              </div>
+              <p style={{ color: "var(--muted)", fontSize: "0.72rem" }}>
+                Saved to <code>api/.env</code> on this machine and never shown back — no restart needed.
+              </p>
+            </div>
           </div>
         )}
       </Section>

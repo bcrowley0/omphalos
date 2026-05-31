@@ -22,7 +22,7 @@ from .adapters.base import (
 )
 from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
-from .config import Settings, get_settings
+from .config import Settings, get_settings, update_env_file
 from .deps import get_registry
 from .models import (
     AddFeedRequest,
@@ -34,6 +34,7 @@ from .models import (
     FeedListResponse,
     FollowItem,
     Interval,
+    KeysUpdateRequest,
     NewsResponse,
     PeopleFeedRequest,
     PeopleFeedResponse,
@@ -320,4 +321,20 @@ def build_status(settings: Settings) -> StatusResponse:
 
 @router.get("/status", response_model=StatusResponse, tags=["meta"])
 async def status() -> StatusResponse:
+    return build_status(get_settings())
+
+
+@router.post("/status/keys", response_model=StatusResponse, tags=["meta"])
+async def update_keys(req: KeysUpdateRequest) -> StatusResponse:
+    """Local-first key entry (localhost only): write the supplied non-empty keys
+    into api/.env and hot-reload settings. Returns the refreshed status only —
+    key VALUES are never returned to the browser."""
+    env_map = {
+        "FRED_API_KEY": req.fred_api_key,
+        "KRAKEN_API_KEY": req.kraken_api_key,
+        "KRAKEN_API_SECRET": req.kraken_api_secret,
+    }
+    updates = {name: value.strip() for name, value in env_map.items() if value and value.strip()}
+    if updates:
+        update_env_file(updates)
     return build_status(get_settings())
