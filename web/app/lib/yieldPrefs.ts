@@ -20,13 +20,26 @@ export function compareKey(c: CompareCurve): string {
 // Canonical shortest → longest lookback ordering for relative curves.
 const PERIOD_ORDER: ComparePeriod[] = ["1d", "1w", "1m", "3m", "6m", "1y"];
 
+function isComparePeriod(x: unknown): x is ComparePeriod {
+  return typeof x === "string" && (PERIOD_ORDER as string[]).includes(x);
+}
+
+// Runtime shape check for a persisted compare curve (localStorage is untrusted).
+function isCompareCurve(x: unknown): x is CompareCurve {
+  if (typeof x !== "object" || x === null) return false;
+  const c = x as Record<string, unknown>;
+  if (typeof c.onChart !== "boolean" || typeof c.showDelta !== "boolean") return false;
+  if (c.kind === "relative") return isComparePeriod(c.period);
+  if (c.kind === "exact") return typeof c.date === "string";
+  return false;
+}
+
 // Sort relative curves into logical low-to-high order; keep exact-date curves
 // after them in their existing (insertion) order.
 function sortCompares(compares: CompareCurve[]): CompareCurve[] {
   const rel = compares
-    .filter((c) => c.kind === "relative")
-    .sort((a, b) => PERIOD_ORDER.indexOf((a as Extract<CompareCurve, { kind: "relative" }>).period)
-      - PERIOD_ORDER.indexOf((b as Extract<CompareCurve, { kind: "relative" }>).period));
+    .filter((c): c is Extract<CompareCurve, { kind: "relative" }> => c.kind === "relative")
+    .sort((a, b) => PERIOD_ORDER.indexOf(a.period) - PERIOD_ORDER.indexOf(b.period));
   const exact = compares.filter((c) => c.kind === "exact");
   return [...rel, ...exact];
 }
@@ -88,7 +101,7 @@ export function loadYieldPrefs(): YieldPrefs {
     if (!Array.isArray(parsed.compares)) return DEFAULT_YIELD_PREFS;
     return {
       currentOnChart: typeof parsed.currentOnChart === "boolean" ? parsed.currentOnChart : true,
-      compares: sortCompares(parsed.compares as CompareCurve[]),
+      compares: sortCompares(parsed.compares.filter(isCompareCurve)),
     };
   } catch {
     return DEFAULT_YIELD_PREFS;
