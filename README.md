@@ -7,6 +7,8 @@ crypto). Prototype runs entirely on localhost.
 See [`CLAUDE.md`](./CLAUDE.md) for the binding architecture rules, type contract,
 canonical data model, and command grammar.
 
+**Repository:** <https://github.com/bcrowley0/omphalos>
+
 ## Architecture
 
 ```
@@ -29,6 +31,11 @@ Monorepo layout:
 - **Python** 3.14.x (`api/.python-version` pins `3.14.4`).
 
 ## Setup & run
+
+```bash
+git clone https://github.com/bcrowley0/omphalos.git
+cd omphalos
+```
 
 Two processes, two terminals. Start the backend first.
 
