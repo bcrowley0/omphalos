@@ -19,6 +19,7 @@ def test_oauth_configured_true_when_all_present():
 
 
 def test_oauth_configured_false_when_any_missing():
+    # representative: any single missing field is sufficient to be unconfigured
     assert _oauth_settings(ibkr_oauth_dh_prime=None).ibkr_oauth_configured is False
 
 

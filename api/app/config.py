@@ -8,6 +8,7 @@ boots without any keys configured; adapters that need a key surface an
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -40,7 +41,7 @@ class Settings(BaseSettings):
     # IBKR Web API OAuth 1.0a (headless). When all six are present, oauth mode
     # is selected by default; otherwise the gateway path is used. RSA key files
     # live in a gitignored api/secrets/ dir; only their paths are stored here.
-    ibkr_auth_mode: str | None = None  # "oauth" | "gateway"; None => auto-resolve
+    ibkr_auth_mode: Literal["oauth", "gateway"] | None = None  # None => auto-resolve
     ibkr_oauth_consumer_key: str | None = None
     ibkr_oauth_access_token: str | None = None
     ibkr_oauth_access_token_secret: str | None = None
