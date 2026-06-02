@@ -282,3 +282,44 @@ def test_apply_speech_classification_upgrades_video_and_podcast():
     out = apply_speech_classification(items)
     kinds = [i.kind for i in out]
     assert kinds == ["speech", "video", "speech", "news"]
+
+
+from app.adapters.people import channel_rss_url  # noqa: E402 — already imported above but re-imported for clarity
+
+_CID = "UCabcdefghij0123456789"  # 20 chars after "UC" (matches the channelId regex)
+
+
+async def test_resolve_youtube_anchor_direct_channel_id_skips_network():
+    adapter = PeopleAdapter()  # no _client set: any fetch would raise
+    assert await adapter.resolve_youtube_anchor(_CID) == channel_rss_url(_CID)
+    assert await adapter.resolve_youtube_anchor(
+        f"https://www.youtube.com/channel/{_CID}"
+    ) == channel_rss_url(_CID)
+
+
+async def test_resolve_youtube_anchor_handle_fetches_and_extracts():
+    seen = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["url"] = str(req.url)
+        return httpx.Response(200, text=f'<script>{{"channelId":"{_CID}"}}</script>')
+
+    adapter = PeopleAdapter()
+    adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    assert await adapter.resolve_youtube_anchor("@karpathy") == channel_rss_url(_CID)
+    assert seen["url"] == "https://www.youtube.com/@karpathy"
+
+
+async def test_discover_youtube_channel_requires_name_match():
+    nomatch = f'<script>{{"channelId":"{_CID}","title":"Cooking Daily"}}</script>'
+    match = f'<script>{{"channelId":"{_CID}","title":"Andrej Karpathy"}}</script>'
+
+    def mk(page):
+        def handler(req: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text=page)
+        a = PeopleAdapter()
+        a._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        return a
+
+    assert await mk(nomatch).discover_youtube_channel("Andrej Karpathy") is None
+    assert await mk(match).discover_youtube_channel("Andrej Karpathy") == channel_rss_url(_CID)

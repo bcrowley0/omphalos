@@ -115,6 +115,8 @@ def channel_rss_url(channel_id: str) -> str:
 
 _CHANNEL_ID_RE = re.compile(r'"channelId":"(UC[0-9A-Za-z_-]{20,})"')
 _CANONICAL_CHANNEL_RE = re.compile(r'/channel/(UC[0-9A-Za-z_-]{20,})')
+_RESOLVE_TTL = 86400.0  # 24h — a handle->channelId mapping rarely changes
+_CHANNEL_TITLE_RE = re.compile(r'"channelId":"UC[0-9A-Za-z_-]{20,}".{0,200}?"title":"([^"]+)"')
 
 
 def extract_channel_id(html: str) -> str | None:
@@ -277,6 +279,48 @@ class PeopleAdapter(Adapter):
 
     async def _fetch(self, url: str) -> str:
         return await get_text(url, source="people", client=self._client, headers={"User-Agent": _UA}, follow_redirects=True)
+
+    async def resolve_youtube_anchor(self, anchor: str) -> str | None:
+        """@handle / channel URL / channelId -> channel uploads RSS. A bare
+        channelId and a /channel/UC… URL skip the network; an @handle fetches the
+        channel page once (cached)."""
+        a = anchor.strip()
+        if a.startswith("UC") and "/" not in a and " " not in a:
+            return channel_rss_url(a)
+        cid = extract_channel_id(a)  # catches /channel/UC… inside a pasted URL
+        if cid:
+            return channel_rss_url(cid)
+
+        async def fetch() -> str | None:
+            url = a if a.startswith("http") else "https://www.youtube.com/" + (a if a.startswith("@") else "@" + a)
+            try:
+                html = await self._fetch(url)
+            except Exception:  # noqa: BLE001
+                return None
+            resolved = extract_channel_id(html)
+            return channel_rss_url(resolved) if resolved else None
+
+        return await cache.get_or_set(f"yt-anchor:{a}", _RESOLVE_TTL, fetch)
+
+    async def discover_youtube_channel(self, name: str) -> str | None:
+        """Best-effort name -> channel uploads RSS via the public channel-search
+        page. Accept ONLY if the top channel's title matches the person's name;
+        otherwise return None (no wrong-person noise). Cached long-TTL."""
+        async def fetch() -> str | None:
+            try:
+                html = await self._fetch(youtube_search_url(name))
+            except Exception:  # noqa: BLE001
+                return None
+            cid = extract_channel_id(html)
+            if not cid:
+                return None
+            m = _CHANNEL_TITLE_RE.search(html)
+            title = m.group(1) if m else ""
+            if not title_mentions_person(title, name):
+                return None
+            return channel_rss_url(cid)
+
+        return await cache.get_or_set(f"yt-discover:{name}", _RESOLVE_TTL, fetch)
 
     async def get_person_feed(self, name: str, feeds: list[str] | None = None) -> list[FollowItem]:
         feeds = feeds or []
