@@ -21,6 +21,15 @@ export function ibkrBannerVisible(state: IbkrAuthState | null): boolean {
   return state === "unauthenticated" || state === "unreachable";
 }
 
+// Pure: whether to offer the "Open gateway login" action. Only "unauthenticated"
+// (gateway running but not logged in) is actionable — the login page loads and
+// the user can sign in. When "unreachable" the gateway process isn't running, so
+// the login URL would open a dead "can't connect to localhost:5000" tab; we hide
+// the button and let the banner/widget guide the user to start the gateway first.
+export function ibkrLoginActionable(state: IbkrAuthState | null): boolean {
+  return state === "unauthenticated";
+}
+
 // Pure: status-dot color for the Settings connections row.
 export function ibkrDotColor(state: IbkrAuthState | null): string {
   switch (state) {
