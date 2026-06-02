@@ -12,10 +12,11 @@ from typing import Any
 
 import httpx
 
-from ibind.oauth.oauth1a import (
-    generate_oauth_headers,
-    req_live_session_token,
-)
+try:  # ibind is only needed for OAuth mode; keep the gateway path import-safe without it
+    from ibind.oauth.oauth1a import generate_oauth_headers, req_live_session_token
+except ImportError:  # pragma: no cover
+    generate_oauth_headers = None  # type: ignore[assignment]
+    req_live_session_token = None  # type: ignore[assignment]
 
 from ..http import get_json, post_form
 from .base import SourceUnavailable, Unauthenticated
@@ -115,6 +116,7 @@ class OAuthTransport(IbkrTransport):
         )
 
     async def get(self, path: str, **kwargs: Any) -> Any:
+        # params stays in kwargs: it's both signed (OAuth) and forwarded to httpx via get_json.
         params = kwargs.get("params")
         headers = {**self._headers("GET", path, params), **kwargs.pop("headers", {})}
         return await get_json(path, source="ibkr", client=self._http(), headers=headers, **kwargs)
@@ -122,6 +124,7 @@ class OAuthTransport(IbkrTransport):
     async def post(self, path: str, **kwargs: Any) -> Any:
         data = kwargs.pop("data", {})
         headers = {**self._headers("POST", path, data or None), **kwargs.pop("headers", {})}
+        assert not kwargs, f"OAuthTransport.post got unexpected kwargs: {kwargs}"
         return await post_form(path, source="ibkr", data=data, client=self._http(), headers=headers)
 
     def _lst_valid(self) -> bool:

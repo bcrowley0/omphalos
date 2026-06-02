@@ -1,3 +1,10 @@
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+
+from app.adapters.base import Unauthenticated
+from app.adapters.ibkr_transport import OAuthTransport
 from app.config import Settings, resolve_ibkr_auth_mode
 
 
@@ -35,13 +42,6 @@ def test_mode_defaults_to_gateway_when_not_configured():
 def test_explicit_mode_overrides_default():
     s = _oauth_settings(ibkr_auth_mode="gateway")
     assert resolve_ibkr_auth_mode(s) == "gateway"
-
-
-import asyncio
-from types import SimpleNamespace
-
-from app.adapters.ibkr_transport import OAuthTransport
-from app.adapters.base import Unauthenticated
 
 
 def _oauth_cfg():
@@ -101,3 +101,18 @@ def test_oauth_ensure_session_fetches_lst_and_inits_brokerage(monkeypatch):
     assert t._lst == "LST"
     assert t._brokerage_ready is True
     assert any(p.endswith("/ssodh/init") for p in posts)
+
+
+def test_oauth_ensure_session_bad_creds_raises_unauthenticated(monkeypatch):
+    t = OAuthTransport(_oauth_cfg())
+
+    def boom(client, cfg):
+        raise RuntimeError("signature rejected")
+
+    monkeypatch.setattr("app.adapters.ibkr_transport.req_live_session_token", boom)
+    monkeypatch.setattr(OAuthTransport, "_ibind_client", lambda self: object())
+
+    with pytest.raises(Unauthenticated) as exc:
+        asyncio.run(t.ensure_session())
+    assert "check api/.env" in str(exc.value)
+    assert t._brokerage_ready is False
