@@ -28,6 +28,12 @@ def test_classify_speech_detects_talks():
     assert not classify_speech("My weekend coding stream")
 
 
+def test_classify_speech_no_substring_false_positives():
+    assert not classify_speech("They were talking about markets")
+    assert not classify_speech("New MAC address assigned")
+    assert not classify_speech("This API is addressable via REST")
+
+
 def test_classify_feed_url_routes_by_host():
     assert classify_feed_url("https://www.youtube.com/@karpathy") == "youtube"
     assert classify_feed_url("https://youtu.be/abc") == "youtube"

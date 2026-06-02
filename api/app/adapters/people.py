@@ -48,11 +48,22 @@ _SPEECH_KEYWORDS = (
     "q&a", "qanda", "remarks", "speech",
 )
 
+_SPEECH_RE = re.compile(
+    r"\b(" + "|".join(re.escape(k) for k in _SPEECH_KEYWORDS) + r")\b", re.IGNORECASE
+)
+# "address" as a speech must not match technical uses like "MAC address" or
+# "IP address" — require it is NOT preceded by an all-caps or network-style token.
+_ADDRESS_EXCLUDE_RE = re.compile(r"\b(?:[A-Z]{2,}|ip|mac|url|dns|web)\s+address\b", re.IGNORECASE)
+
 
 def classify_speech(title: str) -> bool:
-    """True if a video/audio title looks like a talk/speech. Pure/testable."""
-    t = title.lower()
-    return any(kw in t for kw in _SPEECH_KEYWORDS)
+    """True if a video/audio title looks like a talk/speech (whole-word match, so
+    'talking'/'addressable' don't false-positive). Pure/testable."""
+    if not _SPEECH_RE.search(title):
+        return False
+    # If the only keyword match is "address" in a technical context, suppress it.
+    without_tech_address = _ADDRESS_EXCLUDE_RE.sub("", title)
+    return bool(_SPEECH_RE.search(without_tech_address))
 
 
 def classify_feed_url(url: str) -> str:
@@ -67,14 +78,14 @@ def classify_feed_url(url: str) -> str:
 
 def itunes_search_url(name: str) -> str:
     """Keyless iTunes podcast search for a person's shows. Pure/testable."""
-    q = urllib.parse.quote(name)
+    q = urllib.parse.quote(name, safe="")
     return f"https://itunes.apple.com/search?media=podcast&entity=podcast&limit=5&term={q}"
 
 
 def youtube_search_url(name: str) -> str:
     """YouTube results page filtered to channels (sp=EgIQAg) for name->channel
     discovery. Pure/testable."""
-    q = urllib.parse.quote(name)
+    q = urllib.parse.quote(name, safe="")
     return f"https://www.youtube.com/results?search_query={q}&sp=EgIQAg%3D%3D"
 
 
