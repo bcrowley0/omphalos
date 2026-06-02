@@ -9,6 +9,7 @@ from app.adapters.people import (
     classify_speech,
     dedupe_stories,
     derive_kind,
+    extract_channel_id,
     extract_publisher,
     google_news_search_url,
     is_primary_publisher,
@@ -245,3 +246,17 @@ async def test_get_person_feed_skips_a_failing_feed():
     items = await adapter.get_person_feed("Paul Tudor Jones", ["https://broken.example/rss"])
     assert len(items) == 1                       # the news item survived
     assert items[0].kind == "news"
+
+
+def test_extract_channel_id_from_ytinitialdata():
+    html = 'foo <script>var x = {"channelId":"UCabc123DEFghi456jkl789"};</script> bar'
+    assert extract_channel_id(html) == "UCabc123DEFghi456jkl789"
+
+
+def test_extract_channel_id_from_canonical_link():
+    html = '<link rel="canonical" href="https://www.youtube.com/channel/UCxyz789abc123def456ghi">'
+    assert extract_channel_id(html) == "UCxyz789abc123def456ghi"
+
+
+def test_extract_channel_id_none_when_absent():
+    assert extract_channel_id("<html>no channel here</html>") is None

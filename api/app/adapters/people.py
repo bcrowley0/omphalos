@@ -113,6 +113,21 @@ def channel_rss_url(channel_id: str) -> str:
     return f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
 
 
+_CHANNEL_ID_RE = re.compile(r'"channelId":"(UC[0-9A-Za-z_-]{20,})"')
+_CANONICAL_CHANNEL_RE = re.compile(r'/channel/(UC[0-9A-Za-z_-]{20,})')
+
+
+def extract_channel_id(html: str) -> str | None:
+    """Pull a YouTube channelId from a channel or search-results page. Tries the
+    embedded ytInitialData "channelId" first, then a /channel/UC… canonical link.
+    Pure/testable."""
+    m = _CHANNEL_ID_RE.search(html)
+    if m:
+        return m.group(1)
+    m = _CANONICAL_CHANNEL_RE.search(html)
+    return m.group(1) if m else None
+
+
 # Publishers treated as "primary": wire-grade original reporting + press-release
 # wires. Matched case-insensitively as substrings of the publisher name. First-
 # party content (the person's own attached feeds) is always primary regardless.
