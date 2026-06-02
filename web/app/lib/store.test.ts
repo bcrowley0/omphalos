@@ -139,11 +139,44 @@ describe("TerminalStore", () => {
     expect(afterRefresh.getSnapshot().following.some((p) => p.name === "Jensen Huang")).toBe(true);
   });
 
-  it("addPersonFeed attaches a feed URL to a person", () => {
+  it("migrates legacy {feeds} persons into enabled + anchors", () => {
+    window.localStorage.setItem(
+      "omphalos.terminal.v1",
+      JSON.stringify({
+        tabs: [], activeId: null, watchlist: [],
+        following: [{ name: "AK", feeds: ["@karpathy", "https://blog/feed.xml"], lastSeenTs: 5 }],
+      }),
+    );
     const s = new TerminalStore();
-    s.dispatch("follow Jensen Huang");
-    s.addPersonFeed("Jensen Huang", "https://example.com/rss.xml");
-    const p = s.getSnapshot().following.find((x) => x.name === "Jensen Huang")!;
-    expect(p.feeds).toContain("https://example.com/rss.xml");
+    const ak = s.getSnapshot().following.find((p) => p.name === "AK")!;
+    expect(ak.anchors.youtube).toBe("@karpathy");
+    expect(ak.anchors.writing).toContain("https://blog/feed.xml");
+    expect(ak.enabled.writing).toBe(true);
+    expect(ak.lastSeenTs).toBe(5);
+  });
+
+  it("default roster has profile shape", () => {
+    const s = new TerminalStore();
+    const p = s.getSnapshot().following[0];
+    expect(p.anchors.writing).toEqual([]);
+    expect(p.enabled).toBeDefined();
+  });
+
+  it("setPersonEnabled toggles a content type", () => {
+    const s = new TerminalStore();
+    const name = s.getSnapshot().following[0].name;
+    s.setPersonEnabled(name, "videos", false);
+    expect(s.getSnapshot().following[0].enabled.videos).toBe(false);
+  });
+
+  it("setPersonAnchor and writing-feed add/remove", () => {
+    const s = new TerminalStore();
+    const name = s.getSnapshot().following[0].name;
+    s.setPersonAnchor(name, "youtube", "@handle");
+    expect(s.getSnapshot().following[0].anchors.youtube).toBe("@handle");
+    s.addWritingFeed(name, "https://x/feed");
+    expect(s.getSnapshot().following[0].anchors.writing).toContain("https://x/feed");
+    s.removeWritingFeed(name, "https://x/feed");
+    expect(s.getSnapshot().following[0].anchors.writing).not.toContain("https://x/feed");
   });
 });
