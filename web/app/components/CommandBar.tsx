@@ -17,7 +17,7 @@ const SUGGESTIONS: Suggestion[] = [
   { verb: "quote", label: "quote <SYMBOL>", hint: "snapshot quote — AAPL or BTC", needsArg: true },
   { verb: "follow", label: "follow <name>", hint: "follow a person", needsArg: true },
   { verb: "watchlist", label: "watchlist", hint: "open the watchlist", needsArg: false },
-  { verb: "watch", label: "watch <SYMBOL>", hint: "add to watchlist (bare: open it)", needsArg: true },
+  { verb: "watch", label: "watch <SYMBOL>", hint: "add symbol to watchlist", needsArg: true },
   { verb: "cal", label: "cal", hint: "economic calendar", needsArg: false },
   { verb: "settings", label: "settings", hint: "theme, text size, connections", needsArg: false },
 ];
