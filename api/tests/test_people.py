@@ -2,16 +2,58 @@ import httpx
 
 from app.adapters.people import (
     PeopleAdapter,
+    channel_rss_url,
+    classify_feed_url,
+    classify_speech,
     dedupe_stories,
     derive_kind,
     extract_publisher,
     google_news_search_url,
     is_primary_publisher,
+    itunes_search_url,
     merge_dedupe_sort,
     title_mentions_person,
     to_follow_items,
+    youtube_search_url,
 )
 from app.models import FollowItem, NewsItem
+
+
+def test_classify_speech_detects_talks():
+    assert classify_speech("Jensen Huang Keynote at GTC 2024")
+    assert classify_speech("Andrej Karpathy: a talk on neural nets")
+    assert classify_speech("Druckenmiller fireside chat at the Economic Club")
+    assert classify_speech("Full interview with Paul Tudor Jones")
+    assert not classify_speech("Nvidia ships new GPU")
+    assert not classify_speech("My weekend coding stream")
+
+
+def test_classify_feed_url_routes_by_host():
+    assert classify_feed_url("https://www.youtube.com/@karpathy") == "youtube"
+    assert classify_feed_url("https://youtu.be/abc") == "youtube"
+    assert classify_feed_url("@karpathy") == "youtube"  # bare handle
+    assert classify_feed_url("https://feeds.megaphone.fm/show") == "podcast"
+    assert classify_feed_url("https://podcasts.apple.com/us/podcast/x/id123") == "podcast"
+    assert classify_feed_url("https://karpathy.github.io/feed.xml") == "writing"
+
+
+def test_itunes_search_url_encodes_name():
+    url = itunes_search_url("Paul Tudor Jones")
+    assert url.startswith("https://itunes.apple.com/search?")
+    assert "media=podcast" in url
+    assert "Paul%20Tudor%20Jones" in url
+
+
+def test_youtube_search_url_filters_to_channels():
+    url = youtube_search_url("Andrej Karpathy")
+    assert url.startswith("https://www.youtube.com/results?")
+    assert "search_query=" in url
+    assert "Andrej%20Karpathy" in url
+    assert "sp=" in url  # channel-type filter present
+
+
+def test_channel_rss_url_builds_feed():
+    assert channel_rss_url("UC123") == "https://www.youtube.com/feeds/videos.xml?channel_id=UC123"
 
 
 def test_title_mentions_person_full_name_or_surname():

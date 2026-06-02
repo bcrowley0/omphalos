@@ -41,6 +41,48 @@ def derive_kind(url: str) -> str:
     return "blog"
 
 
+# Talk/speech keywords: a video OR podcast item whose title matches is a "speech".
+_SPEECH_KEYWORDS = (
+    "keynote", "talk", "lecture", "fireside", "interview", "testimony",
+    "address", "speaks at", "conference", "summit", "panel", "commencement",
+    "q&a", "qanda", "remarks", "speech",
+)
+
+
+def classify_speech(title: str) -> bool:
+    """True if a video/audio title looks like a talk/speech. Pure/testable."""
+    t = title.lower()
+    return any(kw in t for kw in _SPEECH_KEYWORDS)
+
+
+def classify_feed_url(url: str) -> str:
+    """Route an attached/anchored URL to 'youtube' | 'podcast' | 'writing'. Pure."""
+    u = url.lower().strip()
+    if u.startswith("@") or "youtube.com" in u or "youtu.be" in u:
+        return "youtube"
+    if "podcasts.apple.com" in u or "megaphone" in u or "libsyn" in u or "/podcast" in u or "feeds.simplecast" in u:
+        return "podcast"
+    return "writing"
+
+
+def itunes_search_url(name: str) -> str:
+    """Keyless iTunes podcast search for a person's shows. Pure/testable."""
+    q = urllib.parse.quote(name)
+    return f"https://itunes.apple.com/search?media=podcast&entity=podcast&limit=5&term={q}"
+
+
+def youtube_search_url(name: str) -> str:
+    """YouTube results page filtered to channels (sp=EgIQAg) for name->channel
+    discovery. Pure/testable."""
+    q = urllib.parse.quote(name)
+    return f"https://www.youtube.com/results?search_query={q}&sp=EgIQAg%3D%3D"
+
+
+def channel_rss_url(channel_id: str) -> str:
+    """YouTube channel uploads RSS. Pure/testable."""
+    return f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+
+
 # Publishers treated as "primary": wire-grade original reporting + press-release
 # wires. Matched case-insensitively as substrings of the publisher name. First-
 # party content (the person's own attached feeds) is always primary regardless.
