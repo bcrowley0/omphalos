@@ -34,6 +34,13 @@ def test_classify_speech_no_substring_false_positives():
     assert not classify_speech("This API is addressable via REST")
 
 
+def test_classify_speech_address_is_context_sensitive():
+    assert classify_speech("Presidential address to the nation")
+    assert classify_speech("State of the Union address")
+    assert not classify_speech("New MAC address assigned")
+    assert not classify_speech("Configure the IP address")
+
+
 def test_classify_feed_url_routes_by_host():
     assert classify_feed_url("https://www.youtube.com/@karpathy") == "youtube"
     assert classify_feed_url("https://youtu.be/abc") == "youtube"

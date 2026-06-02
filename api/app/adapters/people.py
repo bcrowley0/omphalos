@@ -53,7 +53,7 @@ _SPEECH_RE = re.compile(
 )
 # "address" as a speech must not match technical uses like "MAC address" or
 # "IP address" — require it is NOT preceded by an all-caps or network-style token.
-_ADDRESS_EXCLUDE_RE = re.compile(r"\b(?:[A-Z]{2,}|ip|mac|url|dns|web)\s+address\b", re.IGNORECASE)
+_ADDRESS_EXCLUDE_RE = re.compile(r"\b(?:MAC|IP|URL|DNS|WEB)\s+address\b", re.IGNORECASE)
 
 
 def classify_speech(title: str) -> bool:
