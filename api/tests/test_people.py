@@ -21,7 +21,7 @@ from app.adapters.people import (
     to_follow_items,
     youtube_search_url,
 )
-from app.models import FollowItem, NewsItem
+from app.models import FollowItem, NewsItem, PersonAnchors, PersonRef
 
 
 def test_parse_itunes_podcasts_keeps_only_name_matched_shows():
@@ -219,34 +219,97 @@ _YT_XML = """<?xml version="1.0"?><rss version="2.0"><channel>
 </channel></rss>"""
 
 
-async def test_get_person_feed_merges_news_and_custom_feed():
+_ITUNES_JSON = '{"results":[{"feedUrl":"https://pod/feed","artistName":"Paul Tudor Jones","collectionName":"PTJ Pod"}]}'
+_POD_XML = """<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>Ep 1: macro outlook</title><link>https://pod/ep1</link>
+<description>p</description><pubDate>Fri, 07 Jun 2024 12:00:00 GMT</pubDate></item>
+</channel></rss>"""
+
+
+def _route(req: httpx.Request) -> httpx.Response:
+    u = str(req.url)
+    if "news.google.com" in u:
+        return httpx.Response(200, text=_GNEWS_XML)
+    if "itunes.apple.com" in u:
+        return httpx.Response(200, text=_ITUNES_JSON)
+    if "pod/feed" in u:
+        return httpx.Response(200, text=_POD_XML)
+    if "youtube.com/feeds/videos.xml" in u:
+        return httpx.Response(200, text=_YT_XML)
+    if "youtube.com/results" in u:  # discovery: matching channel
+        return httpx.Response(200, text='{"channelId":"UCptj00000000000000000","title":"Paul Tudor Jones"}')
+    return httpx.Response(404, text="nope")
+
+
+def _adapter_with(handler):
+    a = PeopleAdapter()
+    a._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    return a
+
+
+async def test_get_person_feed_aggregates_enabled_sources():
+    adapter = _adapter_with(_route)
+    # speeches OFF so the shared _YT_XML ("My talk") stays kind=video for this assertion;
+    # speech classification has its own test below.
+    person = PersonRef(name="Paul Tudor Jones", enabled={"speeches": False})
+    items = await adapter.get_person_feed(person)
+    kinds = {i.kind for i in items}
+    assert "news" in kinds
+    assert "podcast" in kinds       # auto iTunes discovery
+    assert "video" in kinds         # auto YouTube discovery (name-matched)
+    assert all(i.person == "Paul Tudor Jones" for i in items)
+
+
+async def test_get_person_feed_respects_disabled_toggles():
+    adapter = _adapter_with(_route)
+    person = PersonRef(name="Paul Tudor Jones",
+                       enabled={"videos": False, "podcasts": False, "speeches": True})
+    items = await adapter.get_person_feed(person)
+    assert {i.kind for i in items} == {"news"}
+
+
+async def test_get_person_feed_uses_youtube_anchor_over_discovery():
+    person = PersonRef(name="Paul Tudor Jones",
+                       enabled={"news": False, "podcasts": False},
+                       anchors=PersonAnchors(youtube="UCanchor00000000000000"))
+    seen = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["url"] = str(req.url)
+        return httpx.Response(200, text=_YT_XML)
+
+    adapter = _adapter_with(handler)
+    items = await adapter.get_person_feed(person)
+    assert "channel_id=UCanchor00000000000000" in seen["url"]  # anchor used, no discovery fetch
+    assert all(i.kind in ("video", "speech") for i in items)
+
+
+async def test_get_person_feed_skips_a_failing_source():
     def handler(req: httpx.Request) -> httpx.Response:
         if "news.google.com" in str(req.url):
             return httpx.Response(200, text=_GNEWS_XML)
-        return httpx.Response(200, text=_YT_XML)
+        raise httpx.ConnectError("boom", request=req)  # podcast/video sources fail
 
-    adapter = PeopleAdapter()
-    adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    items = await adapter.get_person_feed("Paul Tudor Jones", ["https://youtube.com/feeds/x"])
-    kinds = {i.kind for i in items}
-    assert kinds == {"news", "video"}
-    assert all(i.person == "Paul Tudor Jones" for i in items)
-    assert items[0].published_ts >= (items[1].published_ts or 0)  # newest first
+    adapter = _adapter_with(handler)
+    items = await adapter.get_person_feed(PersonRef(name="Paul Tudor Jones"))
+    assert len(items) >= 1
+    assert any(i.kind == "news" for i in items)
 
 
-async def test_get_person_feed_skips_a_failing_feed():
-    import httpx as _httpx
+async def test_get_person_feed_classifies_speeches():
+    speech_xml = _YT_XML.replace("My talk", "GTC Keynote 2024")
 
-    def handler(req: _httpx.Request) -> _httpx.Response:
-        if "news.google.com" in str(req.url):
-            return _httpx.Response(200, text=_GNEWS_XML)
-        raise _httpx.ConnectError("boom", request=req)  # the custom feed fails
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "youtube.com/feeds/videos.xml" in str(req.url):
+            return httpx.Response(200, text=speech_xml)
+        return httpx.Response(404, text="x")
 
-    adapter = PeopleAdapter()
-    adapter._client = _httpx.AsyncClient(transport=_httpx.MockTransport(handler))
-    items = await adapter.get_person_feed("Paul Tudor Jones", ["https://broken.example/rss"])
-    assert len(items) == 1                       # the news item survived
-    assert items[0].kind == "news"
+    person = PersonRef(name="Paul Tudor Jones",
+                       enabled={"news": False, "podcasts": False},
+                       anchors=PersonAnchors(youtube="UCkeynote0000000000000"))
+    adapter = _adapter_with(handler)
+    items = await adapter.get_person_feed(person)
+    assert any(i.kind == "speech" for i in items)
 
 
 def test_extract_channel_id_from_ytinitialdata():

@@ -17,7 +17,7 @@ from typing import Any
 from ..cache import cache
 from ..dedupe import dedupe_by_url_recent
 from ..http import get_text
-from ..models import FollowItem, NewsItem
+from ..models import FollowItem, NewsItem, PersonRef
 from .base import Adapter, SourceUnavailable
 from .rss import parse_feed
 
@@ -322,27 +322,68 @@ class PeopleAdapter(Adapter):
 
         return await cache.get_or_set(f"yt-discover:{name}", _RESOLVE_TTL, fetch)
 
-    async def get_person_feed(self, name: str, feeds: list[str] | None = None) -> list[FollowItem]:
-        feeds = feeds or []
-        sources: list[tuple[str, str]] = [(google_news_search_url(name), _GOOGLE_NEWS)]
-        for f in feeds:
-            label = "YouTube" if "youtube" in f.lower() else urllib.parse.urlparse(f).netloc or f
-            sources.append((f, label))
+    def _enabled(self, person: PersonRef, kind: str) -> bool:
+        if kind == "writing":
+            return person.enabled.get("writing", bool(person.anchors.writing))
+        return person.enabled.get(kind, True)
+
+    async def _feed_items(self, url: str, name: str, label: str, kind_override: str | None) -> list[FollowItem]:
+        try:
+            xml = await self._fetch(url)
+        except Exception:  # noqa: BLE001 - one bad feed never kills the rest
+            return []
+        return to_follow_items(parse_feed(xml, label), name, label, kind_override=kind_override)
+
+    async def _video_items(self, name: str, anchor: str | None) -> list[FollowItem]:
+        rss = await self.resolve_youtube_anchor(anchor) if anchor else await self.discover_youtube_channel(name)
+        if not rss:
+            return []
+        return await self._feed_items(rss, name, "YouTube", kind_override=None)
+
+    async def _podcast_items(self, name: str, anchor: str | None) -> list[FollowItem]:
+        if anchor:
+            feeds = [anchor]
+        else:
+            try:
+                body = await self._fetch(itunes_search_url(name))
+            except Exception:  # noqa: BLE001
+                return []
+            feeds = parse_itunes_podcasts(body, name)
+        results = await asyncio.gather(
+            *(self._feed_items(f, name, "Podcast", kind_override="podcast") for f in feeds)
+        )
+        return [it for sub in results for it in sub]
+
+    async def get_person_feed(self, person: PersonRef) -> list[FollowItem]:
+        name = person.name
+        anchors = person.anchors
+        tasks: list[Any] = []
+        if self._enabled(person, "news"):
+            tasks.append(self._feed_items(google_news_search_url(name), name, _GOOGLE_NEWS, None))
+        if self._enabled(person, "videos"):
+            tasks.append(self._video_items(name, anchors.youtube))
+        if self._enabled(person, "podcasts"):
+            tasks.append(self._podcast_items(name, anchors.podcast))
+        if self._enabled(person, "writing"):
+            for url in anchors.writing:
+                label = urllib.parse.urlparse(url).netloc or url
+                tasks.append(self._feed_items(url, name, label, None))
+
+        speeches_on = self._enabled(person, "speeches")
+        cache_key = (
+            f"people:{name}:"
+            f"{sorted(person.enabled.items())}:"
+            f"{anchors.youtube}:{anchors.podcast}:{','.join(sorted(anchors.writing))}"
+        )
 
         async def fetch_all() -> list[FollowItem]:
-            async def one(url: str, label: str) -> list[FollowItem]:
-                try:
-                    xml = await self._fetch(url)
-                except Exception:  # noqa: BLE001 - skip a single bad feed, keep the rest
-                    return []
-                return to_follow_items(parse_feed(xml, label), name, label)
-
-            results = await asyncio.gather(*(one(url, label) for url, label in sources))
+            results = await asyncio.gather(*tasks)
             flat = [it for sub in results for it in sub]
             if not flat:
                 raise SourceUnavailable(f"No items found for {name}")
-            # dedupe exact URLs, then collapse the same story across outlets
-            return dedupe_stories(merge_dedupe_sort(flat))
+            flat = dedupe_stories(merge_dedupe_sort(flat))
+            if speeches_on:
+                flat = apply_speech_classification(flat)
+            return flat
 
-        key = f"people:{name}:{','.join(sorted(feeds))}"
-        return await cache.get_or_set(key, _PERSON_TTL, fetch_all)
+        return await cache.get_or_set(cache_key, _PERSON_TTL, fetch_all)
