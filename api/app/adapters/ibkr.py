@@ -20,10 +20,9 @@ from typing import Any
 
 import httpx
 
-from ..config import get_settings
-from ..http import get_json, post_form
 from ..models import Candle, IbkrAuthState, Interval, Position, Quote, Span
 from .base import Adapter, SourceUnavailable, Unauthenticated
+from .ibkr_transport import GatewayTransport, IbkrTransport
 
 # Numeric snapshot field codes -> canonical names (IBKR Web API reference).
 _FIELDS: dict[str, str] = {
@@ -175,47 +174,36 @@ class IbkrAdapter(Adapter):
     name = "ibkr"
 
     def __init__(self) -> None:
+        self._transport: IbkrTransport | None = None
+        # _client is kept as a test-injection shim: tests that set a._client
+        # directly (httpx.MockTransport) are forwarded into the GatewayTransport
+        # by _t() so existing tests need no changes.
         self._client: httpx.AsyncClient | None = None
         self._conids: dict[str, str] = {}
         self._primed = False
 
-    def _gateway(self) -> httpx.AsyncClient:
-        if self._client is None:
-            base = get_settings().ibkr_gateway_base_url.rstrip("/")
-            # TLS verification OFF for the localhost gateway ONLY (self-signed).
-            self._client = httpx.AsyncClient(base_url=base, verify=False, timeout=httpx.Timeout(10.0, connect=4.0))
-        return self._client
+    def _t(self) -> IbkrTransport:
+        if self._transport is None:
+            self._transport = self._build_transport()
+        # Forward a test-injected httpx client into the transport so existing
+        # tests that do `adapter._client = httpx.AsyncClient(...)` still work.
+        if isinstance(self._transport, GatewayTransport) and self._client is not None:
+            self._transport._client = self._client
+        return self._transport
+
+    def _build_transport(self) -> IbkrTransport:
+        from ..config import get_settings
+
+        return GatewayTransport(get_settings().ibkr_gateway_base_url)
 
     async def _get(self, path: str, **kwargs: Any) -> Any:
-        return await get_json(path, source="ibkr", client=self._gateway(), **kwargs)
+        return await self._t().get(path, **kwargs)
 
     async def _post(self, path: str, **kwargs: Any) -> Any:
-        return await post_form(path, source="ibkr", data={}, client=self._gateway(), **kwargs)
+        return await self._t().post(path, **kwargs)
 
     async def _ensure_session(self) -> None:
-        """Map the gateway state to the three required outcomes:
-        unreachable -> SourceUnavailable; up-but-not-logged-in -> Unauthenticated;
-        authenticated -> return. /tickle both keeps the session alive and reports
-        auth status.
-        """
-        try:
-            data = await self._post("/tickle")  # SourceUnavailable on connect error
-        except Unauthenticated as exc:
-            # An unauthenticated gateway answers /tickle with 401 (it proxies the
-            # call upstream) — surface the actionable "log in" state, not a raw error.
-            raise Unauthenticated(
-                "Log in at the IBKR gateway in your browser, then retry."
-            ) from exc
-        except SourceUnavailable as exc:
-            raise SourceUnavailable(
-                "IBKR gateway is not reachable — is the Client Portal Gateway running?"
-            ) from exc
-        auth = (((data or {}).get("iserver") or {}).get("authStatus") or {}).get("authenticated")
-        if auth is None:
-            status = await self._get("/iserver/auth/status")
-            auth = (status or {}).get("authenticated")
-        if not auth:
-            raise Unauthenticated("Log in at the IBKR gateway in your browser, then retry.")
+        await self._t().ensure_session()
 
     async def get_auth_state(self) -> IbkrAuthState:
         """Probe the gateway and return one of the three connection states without
