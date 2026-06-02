@@ -37,6 +37,39 @@ class Settings(BaseSettings):
     # IBKR Client Portal Gateway
     ibkr_gateway_base_url: str = "https://localhost:5000/v1/api"
 
+    # IBKR Web API OAuth 1.0a (headless). When all six are present, oauth mode
+    # is selected by default; otherwise the gateway path is used. RSA key files
+    # live in a gitignored api/secrets/ dir; only their paths are stored here.
+    ibkr_auth_mode: str | None = None  # "oauth" | "gateway"; None => auto-resolve
+    ibkr_oauth_consumer_key: str | None = None
+    ibkr_oauth_access_token: str | None = None
+    ibkr_oauth_access_token_secret: str | None = None
+    ibkr_oauth_signature_key_path: str | None = None
+    ibkr_oauth_encryption_key_path: str | None = None
+    ibkr_oauth_dh_prime: str | None = None
+
+    @property
+    def ibkr_oauth_configured(self) -> bool:
+        return all(
+            (
+                self.ibkr_oauth_consumer_key,
+                self.ibkr_oauth_access_token,
+                self.ibkr_oauth_access_token_secret,
+                self.ibkr_oauth_signature_key_path,
+                self.ibkr_oauth_encryption_key_path,
+                self.ibkr_oauth_dh_prime,
+            )
+        )
+
+
+def resolve_ibkr_auth_mode(settings: "Settings") -> str:
+    """Pick the IBKR auth mode: an explicit `ibkr_auth_mode` wins; otherwise
+    default to "oauth" when OAuth creds are fully configured, else "gateway".
+    """
+    if settings.ibkr_auth_mode in ("oauth", "gateway"):
+        return settings.ibkr_auth_mode
+    return "oauth" if settings.ibkr_oauth_configured else "gateway"
+
 
 @lru_cache
 def get_settings() -> Settings:
