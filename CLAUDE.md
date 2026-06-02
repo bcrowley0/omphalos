@@ -85,6 +85,24 @@ pairs → Kraken; plain tickers → IBKR). Unknown commands/symbols → inline e
 - Shared loading/error UI components reused by all widgets.
 - Keyboard-first: a hotkey focuses the command bar; command history on up/down.
 
+## Worktree execution model
+Worktrees are the isolation unit: each `.worktrees/<N>` is its own filesystem
+on branch `feat/work-<N>`, self-configuring ports (backend :800N, frontend
+:300N) via `dev.sh`. Created with `./new-worktree.sh`. The main checkout is
+driven by a concurrent multi-agent harness — never local-merge into `main`;
+integrate via PR off `origin/main` in a fresh worktree.
+
+How to execute work inside a worktree (threshold, not "always"):
+- **Multi-task plan, or 2+ independent units** (e.g. several adapters/widgets):
+  execute via subagent dispatch — plan first, dispatch per task, review each
+  return. This keeps the orchestrator's context clean on long feature work.
+- **Run parallel subagents ONLY when each gets its own worktree.** One worktree
+  is one filesystem; parallel agents editing the same tree clobber each other.
+  Within a single worktree, subagent execution stays sequential.
+- **Single-file fixes or exploratory/ambiguous work**: do it directly. The
+  plan→dispatch→review round-trip costs more than it saves, and briefing a
+  subagent loses the conversation context exploration needs.
+
 ## Per-source notes — READ BEFORE editing each adapter
 - IBKR adapter      → read `.claude/rules/ibkr.md`
 - Kraken adapter    → read `.claude/rules/kraken.md`
