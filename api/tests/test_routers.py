@@ -3,6 +3,7 @@
 import httpx
 from fastapi.testclient import TestClient
 
+from app.adapters.ibkr_transport import GatewayTransport
 from app.deps import get_registry
 from app.main import app
 from app.models import MarginSummary, Position
@@ -42,7 +43,9 @@ def _mock_ibkr_gateway() -> httpx.AsyncClient:
 
 def test_chart_echoes_resolved_interval_and_span():
     ibkr = get_registry().get("ibkr")
-    ibkr._client = _mock_ibkr_gateway()
+    t = GatewayTransport("https://gw.local/v1/api")
+    t._client = _mock_ibkr_gateway()
+    ibkr._transport = t
     ibkr._conids.clear()
     ibkr._primed = False
 

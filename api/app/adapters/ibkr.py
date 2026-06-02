@@ -18,8 +18,6 @@ import re
 import urllib.parse
 from typing import Any
 
-import httpx
-
 from ..models import Candle, IbkrAuthState, Interval, Position, Quote, Span
 from .base import Adapter, SourceUnavailable, Unauthenticated
 from .ibkr_transport import GatewayTransport, IbkrTransport
@@ -175,20 +173,12 @@ class IbkrAdapter(Adapter):
 
     def __init__(self) -> None:
         self._transport: IbkrTransport | None = None
-        # _client is kept as a test-injection shim: tests that set a._client
-        # directly (httpx.MockTransport) are forwarded into the GatewayTransport
-        # by _t() so existing tests need no changes.
-        self._client: httpx.AsyncClient | None = None
         self._conids: dict[str, str] = {}
         self._primed = False
 
     def _t(self) -> IbkrTransport:
         if self._transport is None:
             self._transport = self._build_transport()
-        # Forward a test-injected httpx client into the transport so existing
-        # tests that do `adapter._client = httpx.AsyncClient(...)` still work.
-        if isinstance(self._transport, GatewayTransport) and self._client is not None:
-            self._transport._client = self._client
         return self._transport
 
     def _build_transport(self) -> IbkrTransport:
