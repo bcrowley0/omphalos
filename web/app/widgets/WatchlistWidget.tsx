@@ -129,7 +129,7 @@ export default function WatchlistWidget({ tabId }: { tabId: string }) {
                   {prefs.showBid && <th style={{ ...th, textAlign: "right" }}>Bid</th>}
                   {prefs.showAsk && <th style={{ ...th, textAlign: "right" }}>Ask</th>}
                   {prefs.showChgPct && <th style={{ ...th, textAlign: "right" }}>Chg%</th>}
-                  <th style={{ padding: "0.3rem 0.6rem" }} />
+                  <th aria-hidden="true" style={{ padding: "0.3rem 0.6rem" }} />
                 </tr>
               </thead>
               <tbody>
@@ -173,13 +173,6 @@ export default function WatchlistWidget({ tabId }: { tabId: string }) {
                           title="open quote"
                         >
                           Q
-                        </button>
-                        <button
-                          onClick={() => terminalStore.dispatch(`chart ${symbol}`)}
-                          style={iconBtn}
-                          title="open chart"
-                        >
-                          ⌁
                         </button>
                         <button
                           onClick={() => terminalStore.dispatch(`unwatch ${symbol}`)}
