@@ -213,11 +213,20 @@ def dedupe_stories(items: list[FollowItem]) -> list[FollowItem]:
     return sorted(kept, key=lambda i: (i.published_ts is not None, i.published_ts or 0), reverse=True)
 
 
-def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> list[FollowItem]:
+def to_follow_items(
+    news: list[NewsItem],
+    person: str,
+    source_label: str,
+    kind_override: str | None = None,
+) -> list[FollowItem]:
     """Convert canonical NewsItems -> FollowItems, tagging person/kind/source and
     classifying primary vs secondary. Google News items derive their publisher
     from the title suffix (which is stripped from the display title); first-party
-    feeds (anything not Google News) are always primary."""
+    feeds (anything not Google News) are always primary.
+
+    ``kind_override`` forces the kind for every item (e.g. ``"podcast"`` for
+    podcast feeds, whose URLs would otherwise classify as ``"blog"``).
+    """
     first_party = source_label != _GOOGLE_NEWS
     items: list[FollowItem] = []
     for n in news:
@@ -235,13 +244,24 @@ def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> lis
                 url=n.url,
                 published_ts=n.published_ts,
                 source=source_label,
-                kind=derive_kind(n.url),
+                kind=kind_override or derive_kind(n.url),
                 publisher=publisher,
                 primary=primary,
                 relevant=relevant,
             )
         )
     return items
+
+
+def apply_speech_classification(items: list[FollowItem]) -> list[FollowItem]:
+    """Upgrade talk-like video/audio items to kind='speech'. Pure/testable."""
+    out: list[FollowItem] = []
+    for it in items:
+        if it.kind in ("video", "podcast") and classify_speech(it.title):
+            out.append(it.model_copy(update={"kind": "speech"}))
+        else:
+            out.append(it)
+    return out
 
 
 def merge_dedupe_sort(items: list[FollowItem]) -> list[FollowItem]:

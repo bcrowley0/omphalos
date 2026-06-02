@@ -4,6 +4,7 @@ import httpx
 
 from app.adapters.people import (
     PeopleAdapter,
+    apply_speech_classification,
     channel_rss_url,
     classify_feed_url,
     classify_speech,
@@ -260,3 +261,24 @@ def test_extract_channel_id_from_canonical_link():
 
 def test_extract_channel_id_none_when_absent():
     assert extract_channel_id("<html>no channel here</html>") is None
+
+
+def test_to_follow_items_kind_override_forces_podcast():
+    news = [NewsItem(title="Ep 12: macro", summary="", url="https://feeds.x/ep12",
+                     published_ts=1, feed="Show")]
+    items = to_follow_items(news, "Paul Tudor Jones", "Macro Show", kind_override="podcast")
+    assert items[0].kind == "podcast"
+
+
+def test_apply_speech_classification_upgrades_video_and_podcast():
+    mk = lambda kind, title: FollowItem(person="P", title=title, summary="", url=f"u-{title}",
+                                        published_ts=1, source="s", kind=kind)
+    items = [
+        mk("video", "GTC Keynote 2024"),
+        mk("video", "Random vlog"),
+        mk("podcast", "Fireside chat with P"),
+        mk("news", "Keynote recap article"),  # news is NOT upgraded
+    ]
+    out = apply_speech_classification(items)
+    kinds = [i.kind for i in out]
+    assert kinds == ["speech", "video", "speech", "news"]
