@@ -36,6 +36,41 @@ describe("TerminalStore", () => {
     expect(s.getSnapshot().watchlist).toEqual([]);
   });
 
+  it("bare watch / watchlist opens the watchlist tab without changing the list", () => {
+    const s = new TerminalStore();
+    s.dispatch("watch NVDA");
+    s.dispatch("watch AAPL");
+    s.dispatch("watch"); // bare: open only
+    expect(s.getSnapshot().watchlist).toEqual(["NVDA", "AAPL"]);
+    expect(s.getSnapshot().activeId).toBe("watchlist");
+    s.dispatch("watchlist"); // verb form: also open only
+    expect(s.getSnapshot().watchlist).toEqual(["NVDA", "AAPL"]);
+  });
+
+  it("moveWatchlistSymbol reorders up and down and persists", () => {
+    const s = new TerminalStore();
+    s.dispatch("watch A");
+    s.dispatch("watch B");
+    s.dispatch("watch C");
+    s.moveWatchlistSymbol("C", "up");
+    expect(s.getSnapshot().watchlist).toEqual(["A", "C", "B"]);
+    s.moveWatchlistSymbol("A", "down");
+    expect(s.getSnapshot().watchlist).toEqual(["C", "A", "B"]);
+
+    const afterRefresh = new TerminalStore();
+    expect(afterRefresh.getSnapshot().watchlist).toEqual(["C", "A", "B"]);
+  });
+
+  it("moveWatchlistSymbol is a no-op at the ends and for unknown symbols", () => {
+    const s = new TerminalStore();
+    s.dispatch("watch A");
+    s.dispatch("watch B");
+    s.moveWatchlistSymbol("A", "up"); // already first
+    s.moveWatchlistSymbol("B", "down"); // already last
+    s.moveWatchlistSymbol("Z", "up"); // not present
+    expect(s.getSnapshot().watchlist).toEqual(["A", "B"]);
+  });
+
   it("records an inline error for an unknown command without opening a tab", () => {
     const s = new TerminalStore();
     s.dispatch("frobnicate");
