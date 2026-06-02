@@ -3,6 +3,7 @@
 const COMMANDS: [string, string][] = [
   ["chart <SYMBOL>", "Price chart — equity or crypto pair (e.g. AAPL, BTC/USD)"],
   ["quote <SYMBOL>", "Snapshot quote — equity or crypto (e.g. AAPL, BTC)"],
+  ["watchlist", "Open the watchlist (bare `watch` also opens it)"],
   ["watch <SYMBOL>", "Add a symbol to the watchlist"],
   ["unwatch <SYMBOL>", "Remove a symbol from the watchlist"],
   ["port", "Portfolio: positions (IBKR) + balances (Kraken)"],
