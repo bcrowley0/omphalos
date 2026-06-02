@@ -111,6 +111,23 @@ class Quote(CamelModel):
     ts: int | None = None  # UTC epoch ms
     stale: bool = False
     source: str
+    # Day stats (each adapter fills what it supports; None = unsupported).
+    day_open: float | None = None
+    day_high: float | None = None
+    day_low: float | None = None
+    volume: float | None = None
+    vwap: float | None = None
+    # Range / fundamentals (IBKR equities only; None for crypto).
+    week52_high: float | None = None
+    week52_low: float | None = None
+    market_cap: float | None = None
+
+
+class PeriodChange(CamelModel):
+    period: str  # "1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "5Y"
+    change: float | None = None
+    change_pct: float | None = None
+    ref_close: float | None = None  # the close we compared against
 
 
 class Position(CamelModel):
@@ -187,6 +204,8 @@ class QuoteResponse(CamelModel):
     status: SourceStatus
     message: str | None = None
     quote: Quote | None = None
+    period_changes: list[PeriodChange] = []
+    period_status: SourceStatus = SourceStatus.OK
 
 
 class PortfolioResponse(CamelModel):
