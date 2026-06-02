@@ -5,6 +5,7 @@ export type Command =
   | { kind: "quote"; symbol: string }
   | { kind: "watch"; symbol: string }
   | { kind: "unwatch"; symbol: string }
+  | { kind: "watchlist" }
   | { kind: "port" }
   | { kind: "yield" }
   | { kind: "news"; feed?: string }
