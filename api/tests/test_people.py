@@ -399,7 +399,10 @@ async def test_discover_youtube_channel_requires_name_match():
 class _FakePeopleAdapter(PeopleAdapter):
     """Returns an empty list without making any network calls."""
 
+    received_arg = None
+
     async def get_person_feed(self, person):  # type: ignore[override]
+        _FakePeopleAdapter.received_arg = person
         return []
 
 
@@ -425,3 +428,8 @@ def test_people_feed_endpoint_accepts_profile(monkeypatch):
     assert resp.status_code == 200
     body = resp.json()
     assert "items" in body and "errors" in body
+    arg = _FakePeopleAdapter.received_arg
+    assert isinstance(arg, PersonRef)
+    assert arg.name == "Paul Tudor Jones"
+    assert arg.enabled == {"videos": False, "podcasts": False}
+    assert body["errors"] == []   # old (p.name, p.feeds) call would raise -> errors non-empty
