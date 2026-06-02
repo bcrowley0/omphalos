@@ -35,3 +35,69 @@ def test_mode_defaults_to_gateway_when_not_configured():
 def test_explicit_mode_overrides_default():
     s = _oauth_settings(ibkr_auth_mode="gateway")
     assert resolve_ibkr_auth_mode(s) == "gateway"
+
+
+import asyncio
+from types import SimpleNamespace
+
+from app.adapters.ibkr_transport import OAuthTransport
+from app.adapters.base import Unauthenticated
+
+
+def _oauth_cfg():
+    return SimpleNamespace(consumer_key="C", access_token="T")
+
+
+def test_oauth_transport_signs_and_gets(monkeypatch):
+    t = OAuthTransport(_oauth_cfg())
+    # Pretend a live session token already exists and the brokerage session is up.
+    t._lst = "LST"
+    t._lst_expires_ms = 10**18
+    t._brokerage_ready = True
+
+    captured = {}
+
+    async def fake_get_json(path, *, source, client, **kwargs):
+        captured["path"] = path
+        captured["headers"] = kwargs.get("headers")
+        return [{"31": "100.0"}]
+
+    monkeypatch.setattr("app.adapters.ibkr_transport.get_json", fake_get_json)
+    monkeypatch.setattr(
+        "app.adapters.ibkr_transport.generate_oauth_headers",
+        lambda **kw: {"Authorization": "OAuth oauth_signature=sig"},
+    )
+
+    out = asyncio.run(t.get("/iserver/marketdata/snapshot", params={"conids": "1"}))
+    assert out == [{"31": "100.0"}]
+    assert captured["path"] == "/iserver/marketdata/snapshot"
+    assert captured["headers"]["Authorization"].startswith("OAuth ")
+
+
+def test_oauth_ensure_session_fetches_lst_and_inits_brokerage(monkeypatch):
+    t = OAuthTransport(_oauth_cfg())
+
+    monkeypatch.setattr(
+        "app.adapters.ibkr_transport.req_live_session_token",
+        lambda client, cfg: ("LST", 10**18, "sigxyz"),
+    )
+    monkeypatch.setattr(
+        "app.adapters.ibkr_transport.generate_oauth_headers",
+        lambda **kw: {"Authorization": "OAuth x"},
+    )
+
+    posts = []
+
+    async def fake_post_form(path, *, source, data, client=None, **kwargs):
+        posts.append(path)
+        if path.endswith("/ssodh/init"):
+            return {"authenticated": True, "connected": True}
+        return {}  # /tickle
+
+    monkeypatch.setattr("app.adapters.ibkr_transport.post_form", fake_post_form)
+    monkeypatch.setattr(OAuthTransport, "_ibind_client", lambda self: object())
+
+    asyncio.run(t.ensure_session())
+    assert t._lst == "LST"
+    assert t._brokerage_ready is True
+    assert any(p.endswith("/ssodh/init") for p in posts)

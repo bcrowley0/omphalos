@@ -7,9 +7,15 @@ isolated here. See docs/superpowers/specs/2026-06-02-ibkr-oauth-design.md.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import httpx
+
+from ibind.oauth.oauth1a import (
+    generate_oauth_headers,
+    req_live_session_token,
+)
 
 from ..http import get_json, post_form
 from .base import SourceUnavailable, Unauthenticated
@@ -68,3 +74,73 @@ class GatewayTransport(IbkrTransport):
             auth = (status or {}).get("authenticated")
         if not auth:
             raise Unauthenticated("Log in at the IBKR gateway in your browser, then retry.")
+
+
+class OAuthTransport(IbkrTransport):
+    """Headless Web API OAuth 1.0a. ibind performs the auth handshake (live
+    session token + request signing); our httpx makes the actual data calls to
+    api.ibkr.com. Holds a 24h LST and a brokerage session (ssodh/init)."""
+
+    BASE = "https://api.ibkr.com/v1/api"
+
+    def __init__(self, oauth_config: Any) -> None:
+        self._oauth = oauth_config
+        self._client: httpx.AsyncClient | None = None
+        self._lst: str | None = None
+        self._lst_expires_ms: int = 0
+        self._brokerage_ready = False
+
+    def _http(self) -> httpx.AsyncClient:
+        if self._client is None:
+            # Real (CA-signed) endpoint: keep TLS verification ON.
+            self._client = httpx.AsyncClient(
+                base_url=self.BASE, timeout=httpx.Timeout(10.0, connect=5.0)
+            )
+        return self._client
+
+    def _ibind_client(self) -> Any:
+        # Minimal ibind client used ONLY to perform the LST handshake.
+        from ibind import IbkrClient
+
+        return IbkrClient(use_oauth=True, oauth_config=self._oauth)
+
+    def _headers(self, method: str, path: str, params: dict | None = None) -> dict[str, str]:
+        return generate_oauth_headers(
+            oauth_config=self._oauth,
+            request_method=method,
+            request_url=f"{self.BASE}{path}",
+            live_session_token=self._lst,
+            request_params=params,
+            signature_method="HMAC-SHA256",
+        )
+
+    async def get(self, path: str, **kwargs: Any) -> Any:
+        params = kwargs.get("params")
+        headers = {**self._headers("GET", path, params), **kwargs.pop("headers", {})}
+        return await get_json(path, source="ibkr", client=self._http(), headers=headers, **kwargs)
+
+    async def post(self, path: str, **kwargs: Any) -> Any:
+        data = kwargs.pop("data", {})
+        headers = {**self._headers("POST", path, data or None), **kwargs.pop("headers", {})}
+        return await post_form(path, source="ibkr", data=data, client=self._http(), headers=headers)
+
+    def _lst_valid(self) -> bool:
+        return bool(self._lst) and self._lst_expires_ms > int(time.time() * 1000) + 60_000
+
+    async def ensure_session(self) -> None:
+        if not self._lst_valid():
+            try:
+                lst, expires_ms, _sig = req_live_session_token(self._ibind_client(), self._oauth)
+            except Exception as exc:  # noqa: BLE001 — bad creds/signature => actionable state
+                self._brokerage_ready = False
+                raise Unauthenticated(
+                    "IBKR OAuth credentials were rejected — check api/.env."
+                ) from exc
+            self._lst = lst
+            self._lst_expires_ms = int(expires_ms)
+            self._brokerage_ready = False
+        if not self._brokerage_ready:
+            # Initialize the brokerage session for iserver endpoints, then confirm.
+            await self.post("/iserver/auth/ssodh/init", data={"publish": "true", "compete": "true"})
+            await self.post("/tickle")
+            self._brokerage_ready = True
