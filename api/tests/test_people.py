@@ -1,7 +1,11 @@
 import json
 
+import app.routers as routers
 import httpx
+import pytest
+from fastapi.testclient import TestClient
 
+from app.main import app
 from app.adapters.people import (
     PeopleAdapter,
     apply_speech_classification,
@@ -386,3 +390,38 @@ async def test_discover_youtube_channel_requires_name_match():
 
     assert await mk(nomatch).discover_youtube_channel("Andrej Karpathy") is None
     assert await mk(match).discover_youtube_channel("Andrej Karpathy") == channel_rss_url(_CID)
+
+
+# --------------------------------------------------------------------------- #
+# Endpoint test — hermetic via a mock PeopleAdapter injected through the registry
+# --------------------------------------------------------------------------- #
+
+class _FakePeopleAdapter(PeopleAdapter):
+    """Returns an empty list without making any network calls."""
+
+    async def get_person_feed(self, person):  # type: ignore[override]
+        return []
+
+
+class _FakeRegistry:
+    def get(self, name: str):
+        if name == "people":
+            a = _FakePeopleAdapter()
+            return a
+        return None
+
+
+def test_people_feed_endpoint_accepts_profile(monkeypatch):
+    monkeypatch.setattr(routers, "get_registry", lambda: _FakeRegistry())
+    client = TestClient(app)
+    resp = client.post("/people/feed", json={
+        "people": [{
+            "name": "Paul Tudor Jones",
+            "enabled": {"videos": False, "podcasts": False},
+            "anchors": {"writing": []},
+        }],
+        "limitPerPerson": 25,
+    })
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "items" in body and "errors" in body
