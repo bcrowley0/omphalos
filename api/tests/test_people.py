@@ -1,3 +1,5 @@
+import json
+
 import httpx
 
 from app.adapters.people import (
@@ -12,11 +14,30 @@ from app.adapters.people import (
     is_primary_publisher,
     itunes_search_url,
     merge_dedupe_sort,
+    parse_itunes_podcasts,
     title_mentions_person,
     to_follow_items,
     youtube_search_url,
 )
 from app.models import FollowItem, NewsItem
+
+
+def test_parse_itunes_podcasts_keeps_only_name_matched_shows():
+    body = json.dumps({
+        "results": [
+            {"feedUrl": "https://a/feed", "artistName": "Andrej Karpathy", "collectionName": "AK Pod"},
+            {"feedUrl": "https://b/feed", "artistName": "Some Other Host", "collectionName": "Tech Daily"},
+            {"feedUrl": "https://c/feed", "artistName": "Lex", "collectionName": "Karpathy & Friends"},
+            {"artistName": "Andrej Karpathy", "collectionName": "No Feed URL"},  # dropped: no feedUrl
+        ]
+    })
+    feeds = parse_itunes_podcasts(body, "Andrej Karpathy")
+    assert feeds == ["https://a/feed", "https://c/feed"]  # surname or full-name match; order preserved
+
+
+def test_parse_itunes_podcasts_handles_garbage():
+    assert parse_itunes_podcasts("not json", "X") == []
+    assert parse_itunes_podcasts(json.dumps({"results": []}), "X") == []
 
 
 def test_classify_speech_detects_talks():

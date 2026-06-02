@@ -9,6 +9,7 @@ name (free, no key, headlines link out) plus optional first-party feeds.
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import urllib.parse
 from typing import Any
@@ -80,6 +81,24 @@ def itunes_search_url(name: str) -> str:
     """Keyless iTunes podcast search for a person's shows. Pure/testable."""
     q = urllib.parse.quote(name, safe="")
     return f"https://itunes.apple.com/search?media=podcast&entity=podcast&limit=5&term={q}"
+
+
+def parse_itunes_podcasts(body: str, name: str) -> list[str]:
+    """Extract podcast feed URLs from an iTunes Search response, keeping only shows
+    whose artist/collection name plausibly matches the person. Pure/testable."""
+    try:
+        data = json.loads(body)
+    except (ValueError, TypeError):
+        return []
+    feeds: list[str] = []
+    for r in data.get("results", []):
+        feed = r.get("feedUrl")
+        if not feed:
+            continue
+        haystack = f"{r.get('artistName', '')} {r.get('collectionName', '')}"
+        if title_mentions_person(haystack, name):
+            feeds.append(feed)
+    return feeds
 
 
 def youtube_search_url(name: str) -> str:
