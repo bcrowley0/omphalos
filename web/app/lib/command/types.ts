@@ -43,4 +43,17 @@ export type Tab = {
 };
 
 // A followed person. `lastSeenTs` drives the "new since you last looked" badge.
-export type Person = { name: string; feeds: string[]; lastSeenTs: number };
+export type ContentType = "news" | "videos" | "podcasts" | "speeches" | "writing";
+
+export type PersonAnchors = {
+  youtube?: string;
+  podcast?: string;
+  writing: string[];
+};
+
+export type Person = {
+  name: string;
+  lastSeenTs: number;
+  enabled: Partial<Record<ContentType, boolean>>;
+  anchors: PersonAnchors;
+};
