@@ -19,11 +19,15 @@ export function parseCommand(input: string): Command {
   switch (verb) {
     case "chart":
     case "quote":
-    case "watch":
     case "unwatch": {
       if (args.length === 0) return err(input, `Usage: ${verb} <SYMBOL>`);
       return { kind: verb, symbol: args[0].toUpperCase() };
     }
+    case "watchlist":
+      return { kind: "watchlist" };
+    case "watch":
+      // Bare `watch` opens the (possibly empty) watchlist; with a symbol it adds.
+      return args.length === 0 ? { kind: "watchlist" } : { kind: "watch", symbol: args[0].toUpperCase() };
     case "news":
       return { kind: "news", feed: args.length ? args.join(" ") : undefined };
     case "port":
