@@ -14,6 +14,7 @@ from app.adapters.sdr import (
     aggregate,
     bucket_tenor,
     classify_underlier,
+    in_rate_band,
     parse_notional,
     parse_rates_csv,
     pick_fixed_rate,
@@ -133,6 +134,42 @@ def test_parse_rates_csv_filters_classifies_and_aggregates():
     cpi = by_key["cpi"]
     assert [p.tenor_label for p in cpi.points] == ["1Y"]
     assert cpi.points[0].rate_pct == pytest.approx(3.235)
+
+
+def test_in_rate_band():
+    # SOFR band (0, 20); CPI band (-2, 8)
+    assert in_rate_band("sofr", 4.0) is True
+    assert in_rate_band("sofr", 25.0) is False
+    assert in_rate_band("cpi", 3.2) is True
+    assert in_rate_band("cpi", 12.8) is False   # the live-data garbage print
+    assert in_rate_band("cpi", 9.0) is False
+    assert in_rate_band("cpi", -1.0) is True    # mild deflation is plausible
+    assert in_rate_band("unknown", 999.0) is True  # unconstrained
+
+
+def test_parse_rates_csv_drops_out_of_band_prints():
+    # A thin CPI bucket polluted by off-convention ~12% prints: the band filter
+    # drops them BEFORE the median, so a fully-garbage bucket yields no row and a
+    # partly-garbage bucket medians only the plausible prints.
+    csv_text = (
+        "Action type,Asset Class,Effective Date,Expiration Date,"
+        "Fixed rate-Leg 1,Fixed rate-Leg 2,Notional amount-Leg 1,Notional amount-Leg 2,"
+        "UPI Underlier Name\n"
+        # 15Y CPI: two garbage prints -> bucket dropped entirely
+        "NEWT,IR,2025-06-02,2040-06-02,0.128,,3000000,,USA-CPI-U\n"
+        "NEWT,IR,2025-06-02,2040-06-02,0.130,,3000000,,USA-CPI-U\n"
+        # 10Y CPI: one garbage + two good -> median of the two good (2.5%, 2.6%)
+        "NEWT,IR,2025-06-02,2035-06-02,0.090,,5000000,,USA-CPI-U\n"
+        "NEWT,IR,2025-06-02,2035-06-02,0.025,,5000000,,USA-CPI-U\n"
+        "NEWT,IR,2025-06-02,2035-06-02,0.026,,5000000,,USA-CPI-U\n"
+    )
+    curves = parse_rates_csv(csv_text, 1_700_000_000_000)
+    cpi = {c.key: c for c in curves}["cpi"]
+    labels = [p.tenor_label for p in cpi.points]
+    assert "15Y" not in labels          # entirely out-of-band -> no row
+    ten = next(p for p in cpi.points if p.tenor_label == "10Y")
+    assert ten.trade_count == 2          # the 9% print was dropped
+    assert ten.rate_pct == pytest.approx(2.55)  # median(2.5, 2.6)
 
 
 def test_get_swap_rates_walks_back_to_first_available(monkeypatch):

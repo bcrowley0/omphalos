@@ -39,6 +39,28 @@ _PRODUCTS: list[tuple[str, str]] = [
     ("cpi", "US CPI (zero-coupon)"),
 ]
 
+# Per-product plausibility band (percent) for a single print's fixed rate. The
+# public tape mixes in off-convention / structured prints under the same underlier
+# (e.g. small-notional "USA-CPI-U" trades printing ~9–13%, which are not the
+# liquid zero-coupon breakeven). Prints outside the band are dropped BEFORE the
+# median so a handful of garbage trades can't skew a thin tenor bucket; a bucket
+# that is entirely out-of-band simply shows no row. Bounds are deliberately wide —
+# they exclude nonsense, not real market moves.
+_RATE_BANDS: dict[str, tuple[float, float]] = {
+    "sofr": (0.0, 20.0),   # USD swap fixed rates have never approached 20%
+    "cpi": (-2.0, 8.0),    # US CPI breakevens; peak ~3%, never ~9%+
+}
+
+
+def in_rate_band(product: str, rate_pct: float) -> bool:
+    """Is this print's fixed rate within the product's plausibility band? Pure.
+    Unknown products are not constrained (returns True)."""
+    band = _RATE_BANDS.get(product)
+    if band is None:
+        return True
+    low, high = band
+    return low <= rate_pct <= high
+
 
 def classify_underlier(name: str) -> str | None:
     """Map a `UPI Underlier Name` to "sofr", "cpi", or None. Pure.
@@ -160,6 +182,8 @@ def parse_rates_csv(text: str, obs_date_ms: int) -> list[SwapCurve]:
             continue
         rate = pick_fixed_rate(row)
         if rate is None:
+            continue
+        if not in_rate_band(product, rate):  # drop off-convention / garbage prints
             continue
         years = tenor_years(row.get("Effective Date") or "", row.get("Expiration Date") or "")
         if years is None:
