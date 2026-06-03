@@ -125,3 +125,61 @@ def test_parse_rates_csv_filters_classifies_and_aggregates():
     cpi = by_key["cpi"]
     assert [p.tenor_label for p in cpi.points] == ["1Y"]
     assert cpi.points[0].rate_pct == pytest.approx(3.235)
+
+
+from app.adapters.sdr import SdrAdapter
+from app.adapters.base import SourceUnavailable
+from app.cache import cache
+import io
+import zipfile
+
+
+def test_get_swap_rates_walks_back_to_first_available(monkeypatch):
+    cache._store.clear()
+    today = datetime.now(timezone.utc).date()
+    available = today - timedelta(days=1)  # today's file 404s; yesterday's exists
+
+    async def fake_fetch(self, d):
+        if d == available:
+            return FIXTURE_CSV
+        raise SourceUnavailable("sdr error (HTTP 404)")
+
+    monkeypatch.setattr(SdrAdapter, "_fetch_csv", fake_fetch)
+
+    curves = asyncio.run(SdrAdapter().get_swap_rates())
+    by_key = {c.key: c for c in curves}
+    assert set(by_key) == {"sofr", "cpi"}
+    sofr = by_key["sofr"]
+    assert [p.tenor_label for p in sofr.points] == ["5Y", "10Y"]
+    expected_ms = int(
+        datetime(available.year, available.month, available.day, tzinfo=timezone.utc).timestamp() * 1000
+    )
+    assert sofr.obs_date == expected_ms
+
+
+def test_get_swap_rates_raises_when_no_file_in_window(monkeypatch):
+    cache._store.clear()
+
+    async def fake_fetch(self, d):
+        raise SourceUnavailable("sdr error (HTTP 404)")
+
+    monkeypatch.setattr(SdrAdapter, "_fetch_csv", fake_fetch)
+    with pytest.raises(SourceUnavailable):
+        asyncio.run(SdrAdapter().get_swap_rates())
+
+
+def test_fetch_csv_unzips_in_memory(monkeypatch):
+    cache._store.clear()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("CFTC_CUMULATIVE_RATES_2025_05_29.csv", FIXTURE_CSV)
+    zip_bytes = buf.getvalue()
+
+    async def fake_get_bytes(url, *, source, **kwargs):
+        assert source == "sdr"
+        assert url.endswith("CFTC_CUMULATIVE_RATES_2025_05_29.zip")
+        return zip_bytes
+
+    monkeypatch.setattr("app.adapters.sdr.get_bytes", fake_get_bytes)
+    text = asyncio.run(SdrAdapter()._fetch_csv(date(2025, 5, 29)))
+    assert "USD-SOFR-OIS Compound" in text
