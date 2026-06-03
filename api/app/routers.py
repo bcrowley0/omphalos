@@ -21,7 +21,8 @@ from .adapters.base import (
     Unauthenticated,
 )
 from .adapters.ibkr import IbkrAdapter, gateway_login_url
-from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
+from .adapters.people import PeopleAdapter
+from .adapters.people import merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
 from .config import Settings, get_settings, update_env_file
 from .deps import get_registry
@@ -52,6 +53,7 @@ from .models import (
     Span,
     StatusResponse,
     SuggestedSource,
+    SwapsResponse,
     YieldCurveResponse,
 )
 from .symbols import resolve
@@ -224,6 +226,24 @@ async def yield_curve(asof: list[str] = Query(default=[])) -> YieldCurveResponse
         return YieldCurveResponse(status=status, message=msg)
     status = SourceStatus.OK if any(c.points for c in curves) else SourceStatus.EMPTY
     return YieldCurveResponse(status=status, curves=curves)
+
+
+# --------------------------------------------------------------------------- #
+# swaps → CFTC SDR (DTCC public dissemination). EOD SOFR + US CPI rate-by-tenor.
+# --------------------------------------------------------------------------- #
+@router.get("/swaps", response_model=SwapsResponse, tags=["macro"])
+async def swaps() -> SwapsResponse:
+    adapter = _adapter("sdr")
+    if adapter is None:
+        return SwapsResponse(status=SourceStatus.SOURCE_DOWN, message="sdr integration not available.")
+    try:
+        curves = await adapter.get_swap_rates()
+    except Exception as exc:  # noqa: BLE001 — mapped to a UI state, never crashes
+        status, msg = _status_from_exc(exc)
+        return SwapsResponse(status=status, message=msg)
+    file_date = next((c.obs_date for c in curves), None)
+    status = SourceStatus.OK if any(c.points for c in curves) else SourceStatus.EMPTY
+    return SwapsResponse(status=status, file_date=file_date, curves=curves)
 
 
 # --------------------------------------------------------------------------- #

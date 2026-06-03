@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/swaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Swaps */
+        get: operations["swaps_swaps_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/news": {
         parameters: {
             query?: never;
@@ -664,6 +681,53 @@ export interface components {
              */
             urls: string[];
         };
+        /**
+         * SwapCurve
+         * @description SOFR or US CPI swap rates by tenor, as of one EOD SDR file.
+         */
+        SwapCurve: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Obsdate */
+            obsDate: number;
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["SwapTenorPoint"][];
+        };
+        /**
+         * SwapTenorPoint
+         * @description One standard tenor's summary from a day of SDR swap prints: the median
+         *     fixed rate, how many prints fell in the bucket, and their summed notional.
+         */
+        SwapTenorPoint: {
+            /** Tenorlabel */
+            tenorLabel: string;
+            /** Tenoryears */
+            tenorYears: number;
+            /** Ratepct */
+            ratePct: number;
+            /** Tradecount */
+            tradeCount: number;
+            /** Totalnotional */
+            totalNotional: number;
+        };
+        /** SwapsResponse */
+        SwapsResponse: {
+            status: components["schemas"]["SourceStatus"];
+            /** Message */
+            message?: string | null;
+            /** Filedate */
+            fileDate?: number | null;
+            /**
+             * Curves
+             * @default []
+             */
+            curves: components["schemas"]["SwapCurve"][];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -839,6 +903,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    swaps_swaps_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwapsResponse"];
                 };
             };
         };

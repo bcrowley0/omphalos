@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.deps import get_registry
 from app.main import app
-from app.models import MarginSummary, Position
+from app.models import MarginSummary, Position, SwapCurve, SwapTenorPoint
 
 client = TestClient(app)
 
@@ -88,3 +88,53 @@ def test_portfolio_merges_kraken_margin_and_summary(monkeypatch):
     assert symbols["BTC/USD"]["marginUsed"] == 4000
     assert body["marginSummary"]["freeMargin"] == 8000
     assert body["marginSummary"]["marginLevel"] == 500
+
+
+def test_swaps_ok(monkeypatch):
+    sdr = get_registry().get("sdr")
+
+    async def _rates():
+        return [
+            SwapCurve(
+                key="sofr", label="SOFR OIS", obs_date=1_700_000_000_000,
+                points=[SwapTenorPoint(tenor_label="10Y", tenor_years=10.0, rate_pct=3.98,
+                                       trade_count=2, total_notional=75_000_000.0)],
+            ),
+            SwapCurve(key="cpi", label="US CPI (zero-coupon)", obs_date=1_700_000_000_000, points=[]),
+        ]
+
+    monkeypatch.setattr(sdr, "get_swap_rates", _rates)
+    r = client.get("/swaps")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert body["fileDate"] == 1_700_000_000_000
+    sofr = next(c for c in body["curves"] if c["key"] == "sofr")
+    assert sofr["points"][0]["tenorLabel"] == "10Y"
+    assert sofr["points"][0]["totalNotional"] == 75_000_000.0
+
+
+def test_swaps_empty_when_no_points(monkeypatch):
+    sdr = get_registry().get("sdr")
+
+    async def _rates():
+        return [
+            SwapCurve(key="sofr", label="SOFR OIS", obs_date=1_700_000_000_000, points=[]),
+            SwapCurve(key="cpi", label="US CPI (zero-coupon)", obs_date=1_700_000_000_000, points=[]),
+        ]
+
+    monkeypatch.setattr(sdr, "get_swap_rates", _rates)
+    r = client.get("/swaps")
+    assert r.json()["status"] == "empty"
+
+
+def test_swaps_maps_source_down(monkeypatch):
+    from app.adapters.base import SourceUnavailable
+    sdr = get_registry().get("sdr")
+
+    async def _rates():
+        raise SourceUnavailable("no recent file")
+
+    monkeypatch.setattr(sdr, "get_swap_rates", _rates)
+    r = client.get("/swaps")
+    assert r.json()["status"] == "source_down"

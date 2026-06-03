@@ -17,6 +17,7 @@ from .adapters.mock import MockAdapter
 from .adapters.people import PeopleAdapter
 from .adapters.registry import AdapterRegistry, registry
 from .adapters.rss import RssAdapter
+from .adapters.sdr import SdrAdapter
 
 registry.register(MockAdapter())
 registry.register(KrakenAdapter())
@@ -24,6 +25,7 @@ registry.register(FredAdapter())
 registry.register(RssAdapter())
 registry.register(IbkrAdapter())
 registry.register(PeopleAdapter())
+registry.register(SdrAdapter())
 
 
 def get_registry() -> AdapterRegistry:

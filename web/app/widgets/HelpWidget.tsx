@@ -8,6 +8,7 @@ const COMMANDS: [string, string][] = [
   ["unwatch <SYMBOL>", "Remove a symbol from the watchlist"],
   ["port", "Portfolio: positions (IBKR) + balances (Kraken)"],
   ["yield", "US Treasury yield curve (FRED)"],
+  ["swaps", "SOFR & US CPI swap rates by tenor (CFTC SDR via DTCC)"],
   ["news [feed]", "Headlines (optional feed name)"],
   ["follow <name>", "Follow a person; opens their feed (news, interviews, talks)"],
   ["unfollow <name>", "Stop following a person"],

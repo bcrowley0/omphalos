@@ -85,4 +85,9 @@ describe("parseCommand", () => {
   it("errors when follow has no name", () => {
     expect(parseCommand("follow").kind).toBe("error");
   });
+
+  it("parses argless `swaps`", () => {
+    expect(parseCommand("swaps")).toEqual({ kind: "swaps" });
+    expect(parseCommand("  SWAPS ")).toEqual({ kind: "swaps" });
+  });
 });
