@@ -4,7 +4,8 @@ from types import SimpleNamespace
 import pytest
 
 from app.adapters.base import Unauthenticated
-from app.adapters.ibkr_transport import OAuthTransport
+from app.adapters.ibkr import IbkrAdapter
+from app.adapters.ibkr_transport import GatewayTransport, OAuthTransport
 from app.config import Settings, resolve_ibkr_auth_mode
 
 
@@ -116,10 +117,6 @@ def test_oauth_ensure_session_bad_creds_raises_unauthenticated(monkeypatch):
         asyncio.run(t.ensure_session())
     assert "check api/.env" in str(exc.value)
     assert t._brokerage_ready is False
-
-
-from app.adapters.ibkr import IbkrAdapter
-from app.adapters.ibkr_transport import GatewayTransport, OAuthTransport
 
 
 def test_adapter_builds_gateway_transport_by_default(monkeypatch):
