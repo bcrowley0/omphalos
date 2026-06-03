@@ -10,6 +10,7 @@ export type Command =
   | { kind: "yield" }
   | { kind: "news"; feed?: string }
   | { kind: "cal" }
+  | { kind: "swaps" }
   | { kind: "help" }
   | { kind: "follow"; name: string }
   | { kind: "unfollow"; name: string }
@@ -26,6 +27,7 @@ export type WidgetKind =
   | "yield"
   | "news"
   | "cal"
+  | "swaps"
   | "help"
   | "following"
   | "person"
