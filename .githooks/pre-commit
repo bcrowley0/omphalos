@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Reject commits on `main`: it is a read-only mirror of origin/main.
+set -uo pipefail
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)"
+if [ "$branch" = "main" ]; then
+  echo "pre-commit: 'main' is a read-only mirror of origin/main." >&2
+  echo "  Run ./new-worktree.sh, commit there, and integrate via PR." >&2
+  exit 1
+fi
+exit 0
