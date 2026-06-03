@@ -219,3 +219,31 @@ def test_parse_errors_are_mapped():
         parse_ticker({"error": ["EQuery:Unknown asset pair"], "result": {}}, "NO/PE")
     with pytest.raises(RateLimited):
         parse_ohlc({"error": ["EAPI:Rate limit exceeded"], "result": {}})
+
+
+def test_parse_ticker_populates_day_stats():
+    payload = {
+        "error": [],
+        "result": {
+            "XXBTZUSD": {
+                "a": ["101.0", "1", "1.0"],
+                "b": ["100.0", "1", "1.0"],
+                "c": ["100.5", "0.1"],
+                "v": ["10.0", "250.0"],
+                "p": ["99.0", "98.5"],
+                "t": [100, 2000],
+                "l": ["95.0", "90.0"],
+                "h": ["105.0", "110.0"],
+                "o": "97.0",
+            }
+        },
+    }
+    q = parse_ticker(payload, "BTC/USD")
+    assert q.day_open == 97.0
+    assert q.day_high == 110.0   # 24h high (index 1)
+    assert q.day_low == 90.0     # 24h low (index 1)
+    assert q.volume == 250.0     # 24h volume (index 1)
+    assert q.vwap == 98.5        # 24h vwap (index 1)
+    # crypto has no equity fundamentals
+    assert q.week52_high is None
+    assert q.market_cap is None

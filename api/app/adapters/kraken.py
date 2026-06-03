@@ -258,6 +258,13 @@ def parse_ticker(payload: dict[str, Any], symbol: str) -> Quote:
     open_ = float(raw_open)
     change = round(last - open_, 8)
     change_pct = round((change / open_) * 100, 4) if open_ else 0.0
+
+    def _arr24(key: str) -> float | None:
+        val = t.get(key)
+        if isinstance(val, list) and len(val) > 1:
+            return float(val[1])
+        return None
+
     return Quote(
         symbol=symbol,
         last=last,
@@ -268,6 +275,11 @@ def parse_ticker(payload: dict[str, Any], symbol: str) -> Quote:
         ts=None,
         stale=False,
         source="kraken",
+        day_open=open_,
+        day_high=_arr24("h"),
+        day_low=_arr24("l"),
+        volume=_arr24("v"),
+        vwap=_arr24("p"),
     )
 
 
