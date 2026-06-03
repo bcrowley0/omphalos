@@ -92,6 +92,13 @@ on branch `feat/work-<N>`, self-configuring ports (backend :800N, frontend
 driven by a concurrent multi-agent harness — never local-merge into `main`;
 integrate via PR off `origin/main` in a fresh worktree.
 
+This is now **enforced**, not just convention: `main` is a read-only mirror of
+`origin/main`. Committed git hooks (`.githooks/`, via `core.hooksPath`) reject
+commits on `main` and direct pushes to `origin/main`; a `SessionStart` hook runs
+`scripts/sync-main-mirror.sh`, which fast-forwards local `main` to `origin/main`
+(fast-forward only, never a merge) and self-installs `core.hooksPath`. Do all
+work in a worktree.
+
 How to execute work inside a worktree (threshold, not "always"):
 - **Multi-task plan, or 2+ independent units** (e.g. several adapters/widgets):
   execute via subagent dispatch — plan first, dispatch per task, review each
