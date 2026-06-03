@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { useIbkrAuth } from "./IbkrAuthProvider";
 import { IbkrLoginButton, IbkrRecheckButton } from "./IbkrLoginButton";
-import { ibkrBannerVisible } from "../lib/ibkrAuth";
+import { ibkrBannerVisible, ibkrLoginActionable } from "../lib/ibkrAuth";
 
 // Global "log in to IBKR" banner shown on load when the gateway is not connected.
 // One-click opens the gateway login; "Re-check" re-probes; dismiss hides it for
@@ -24,7 +24,7 @@ export default function IbkrAuthBanner() {
     <div style={bannerStyle}>
       <span style={dot} />
       <span style={{ flex: 1, color: "var(--foreground)" }}>{detail ?? "IBKR is not connected."}</span>
-      <IbkrLoginButton loginUrl={loginUrl} />
+      {ibkrLoginActionable(state) && <IbkrLoginButton loginUrl={loginUrl} />}
       <IbkrRecheckButton onClick={recheck} loading={loading} />
       <button onClick={() => setDismissed(true)} style={dismiss} title="Dismiss" aria-label="Dismiss">
         ✕
