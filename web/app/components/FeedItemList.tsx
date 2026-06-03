@@ -3,6 +3,47 @@
 import type { FollowItem } from "../lib/api/client";
 import { timeAgo } from "../lib/format";
 
+export const KIND_LABEL: Record<string, string> = {
+  news: "News",
+  video: "Video",
+  podcast: "Podcast",
+  speech: "Speech",
+  blog: "Writing",
+};
+
+// Distinct kinds present in `items`, in first-appearance order. Pure/testable.
+export function presentKinds(items: FollowItem[]): string[] {
+  const out: string[] = [];
+  for (const i of items) if (!out.includes(i.kind)) out.push(i.kind);
+  return out;
+}
+
+// A chip row of the kinds actually present, plus "All". Hidden when ≤1 kind.
+export function KindFilterChips({
+  items,
+  active,
+  onPick,
+}: {
+  items: FollowItem[];
+  active: string | null;
+  onPick: (kind: string | null) => void;
+}) {
+  const kinds = presentKinds(items);
+  if (kinds.length <= 1) return null;
+  const chip = (label: string, value: string | null, on: boolean) => (
+    <button key={label} onClick={() => onPick(value)}
+      style={{ background: on ? "var(--panel)" : "transparent", color: on ? "var(--accent)" : "var(--muted)", border: "1px solid var(--border)", borderRadius: 999, padding: "0.15rem 0.6rem", cursor: "pointer", fontFamily: "inherit", fontSize: "0.74rem" }}>
+      {label}
+    </button>
+  );
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginBottom: "0.7rem" }}>
+      {chip("All", null, active === null)}
+      {kinds.map((k) => chip(KIND_LABEL[k] ?? k, k, active === k))}
+    </div>
+  );
+}
+
 // The "primary & on-topic" curation toggle + "show all (N more)" link, shared by
 // the per-person and aggregate follow feeds.
 export function CuratedToggle({
@@ -54,7 +95,8 @@ export function FeedItemList({
           {item.summary && <p style={{ color: "var(--muted)", margin: "0.25rem 0" }}>{item.summary}</p>}
           <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
             {showPerson && `${item.person} · `}
-            {item.publisher ?? item.source}
+            <span style={{ color: "var(--accent)" }}>{KIND_LABEL[item.kind] ?? item.kind}</span>
+            {" · "}{item.publisher ?? item.source}
             {item.primary ? "" : " · secondary"} · {timeAgo(item.publishedTs)}
           </span>
         </li>
