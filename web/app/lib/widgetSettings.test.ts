@@ -12,6 +12,18 @@ import {
   DEFAULT_WATCHLIST_PREFS,
 } from "./widgetSettings";
 
+describe("quote prefs", () => {
+  it("defaults the new toggles to true", () => {
+    expect(DEFAULT_QUOTE_PREFS.showPeriods).toBe(true);
+    expect(DEFAULT_QUOTE_PREFS.showDayStats).toBe(true);
+  });
+  it("coerces partial / bad input to defaults", () => {
+    expect(coerceQuotePrefs({ showPeriods: false }).showPeriods).toBe(false);
+    expect(coerceQuotePrefs({ showPeriods: "nope" }).showPeriods).toBe(true);
+    expect(coerceQuotePrefs({}).showDayStats).toBe(true);
+  });
+});
+
 describe("widgetSettings coercers", () => {
   it("return defaults for empty / non-object input", () => {
     expect(coerceQuotePrefs(null)).toEqual(DEFAULT_QUOTE_PREFS);
@@ -25,6 +37,8 @@ describe("widgetSettings coercers", () => {
     expect(coerceQuotePrefs({ showSource: false, showStale: false })).toEqual({
       showSource: false,
       showStale: false,
+      showPeriods: true,
+      showDayStats: true,
     });
     expect(coerceFollowingPrefs({ curated: false })).toEqual({ curated: false });
   });

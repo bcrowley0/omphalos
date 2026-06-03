@@ -12,13 +12,25 @@ function bool(x: unknown, fallback: boolean): boolean {
 
 // ---- Quote ----------------------------------------------------------------
 export const QUOTE_PREFS_KEY = "omphalos.quote.prefs.v1";
-export type QuotePrefs = { showSource: boolean; showStale: boolean };
-export const DEFAULT_QUOTE_PREFS: QuotePrefs = { showSource: true, showStale: true };
+export type QuotePrefs = {
+  showSource: boolean;
+  showStale: boolean;
+  showPeriods: boolean;
+  showDayStats: boolean;
+};
+export const DEFAULT_QUOTE_PREFS: QuotePrefs = {
+  showSource: true,
+  showStale: true,
+  showPeriods: true,
+  showDayStats: true,
+};
 export function coerceQuotePrefs(x: unknown): QuotePrefs {
   const p = asObject(x);
   return {
     showSource: bool(p.showSource, true),
     showStale: bool(p.showStale, true),
+    showPeriods: bool(p.showPeriods, true),
+    showDayStats: bool(p.showDayStats, true),
   };
 }
 
