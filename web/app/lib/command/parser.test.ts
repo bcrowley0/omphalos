@@ -15,6 +15,22 @@ describe("parseCommand", () => {
     expect(parseCommand("unwatch nvda")).toEqual({ kind: "unwatch", symbol: "NVDA" });
   });
 
+  it("parses bare `watch` (no symbol) as opening the watchlist", () => {
+    expect(parseCommand("watch")).toEqual({ kind: "watchlist" });
+  });
+
+  it("parses the `watchlist` verb as opening the watchlist", () => {
+    expect(parseCommand("watchlist")).toEqual({ kind: "watchlist" });
+  });
+
+  it("still parses `watch <SYMBOL>` as adding to the watchlist", () => {
+    expect(parseCommand("watch tsla")).toEqual({ kind: "watch", symbol: "TSLA" });
+  });
+
+  it("still errors on bare `unwatch` (a symbol is required to remove)", () => {
+    expect(parseCommand("unwatch").kind).toBe("error");
+  });
+
   it("parses argless commands `port`, `yield`, `cal`, `help`", () => {
     expect(parseCommand("port")).toEqual({ kind: "port" });
     expect(parseCommand("yield")).toEqual({ kind: "yield" });

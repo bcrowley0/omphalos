@@ -31,6 +31,7 @@ from .models import (
     Balance,
     CalendarResponse,
     CandlesResponse,
+    CatalogResponse,
     FeedError,
     FeedInfo,
     FeedListResponse,
@@ -47,9 +48,11 @@ from .models import (
     Quote,
     QuoteResponse,
     SourceConnection,
+    SourceNameRequest,
     SourceStatus,
     Span,
     StatusResponse,
+    SuggestedSource,
     YieldCurveResponse,
 )
 from .symbols import resolve
@@ -263,6 +266,45 @@ async def add_feed(req: AddFeedRequest) -> FeedListResponse:
     rss.add_feed(req.name, req.url)
     feeds = [FeedInfo(name=n, urls=u) for n, u in rss.list_feeds().items()]
     return FeedListResponse(status=SourceStatus.OK, feeds=feeds)
+
+
+def _feed_list(rss: RssAdapter) -> FeedListResponse:
+    feeds = [FeedInfo(name=n, urls=u) for n, u in rss.list_feeds().items()]
+    return FeedListResponse(status=SourceStatus.OK, feeds=feeds)
+
+
+@router.get("/news/catalog", response_model=CatalogResponse, tags=["news"])
+async def news_catalog() -> CatalogResponse:
+    """Curated, off-by-default sources the user can enable from the News picker."""
+    rss = _rss()
+    if rss is None:
+        return CatalogResponse(status=SourceStatus.SOURCE_DOWN)
+    sources = [SuggestedSource(name=n, category=c, urls=u) for n, c, u in rss.suggested_sources()]
+    return CatalogResponse(status=SourceStatus.OK, sources=sources)
+
+
+@router.post("/news/sources/enable", response_model=FeedListResponse, tags=["news"])
+async def enable_source(req: SourceNameRequest) -> FeedListResponse:
+    rss = _rss()
+    if rss is None:
+        return FeedListResponse(status=SourceStatus.SOURCE_DOWN)
+    try:
+        rss.enable_source(req.name)
+    except SourceUnavailable:
+        return FeedListResponse(status=SourceStatus.SOURCE_DOWN)
+    return _feed_list(rss)
+
+
+@router.post("/news/sources/disable", response_model=FeedListResponse, tags=["news"])
+async def disable_source(req: SourceNameRequest) -> FeedListResponse:
+    rss = _rss()
+    if rss is None:
+        return FeedListResponse(status=SourceStatus.SOURCE_DOWN)
+    try:
+        rss.remove_feed(req.name)
+    except SourceUnavailable:
+        return FeedListResponse(status=SourceStatus.SOURCE_DOWN)
+    return _feed_list(rss)
 
 
 # --------------------------------------------------------------------------- #

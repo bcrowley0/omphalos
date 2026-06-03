@@ -160,6 +160,18 @@ export class TerminalStore {
     this.dispatch(`unfollow ${name}`);
   }
 
+  /** Move a watched symbol one position up or down. No-op at the ends / unknown symbol. */
+  moveWatchlistSymbol(symbol: string, dir: "up" | "down") {
+    const list = this.state.watchlist;
+    const i = list.indexOf(symbol);
+    if (i === -1) return;
+    const j = dir === "up" ? i - 1 : i + 1;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    this.set({ ...this.state, watchlist: next });
+  }
+
   addPersonFeed(name: string, url: string) {
     const following = this.state.following.map((p) =>
       p.name === name && !p.feeds.includes(url) ? { ...p, feeds: [...p.feeds, url] } : p,
