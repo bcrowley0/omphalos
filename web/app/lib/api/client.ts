@@ -24,3 +24,6 @@ export type SourceStatus = Schemas["SourceStatus"];
 export type FeedInfo = Schemas["FeedInfo"];
 export type SuggestedSource = Schemas["SuggestedSource"];
 export type FollowItem = Schemas["FollowItem"];
+export type SwapsResponse = Schemas["SwapsResponse"];
+export type SwapCurve = Schemas["SwapCurve"];
+export type SwapTenorPoint = Schemas["SwapTenorPoint"];
