@@ -12,8 +12,9 @@ if [ "$(git config --get core.hooksPath 2>/dev/null || echo)" != ".githooks" ]; 
   git config core.hooksPath .githooks
 fi
 
-# Refresh remote state; offline just skips (never blocks).
-git fetch origin --quiet 2>/dev/null || { echo "[sync-main] fetch skipped (offline?)"; exit 0; }
+# Refresh remote state; offline/unreachable just skips (never blocks). The
+# GIT_TERMINAL_PROMPT=0 guarantees a missing credential can never hang a session.
+GIT_TERMINAL_PROMPT=0 git fetch origin --quiet 2>/dev/null || { echo "[sync-main] fetch skipped (offline/unreachable)"; exit 0; }
 
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)"
 [ "$branch" = "main" ] || { echo "[sync-main] not on main ($branch) — nothing to sync"; exit 0; }
