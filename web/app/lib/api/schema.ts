@@ -141,6 +141,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/news/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * News Catalog
+         * @description Curated, off-by-default sources the user can enable from the News picker.
+         */
+        get: operations["news_catalog_news_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/news/sources/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable Source */
+        post: operations["enable_source_news_sources_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/news/sources/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable Source */
+        post: operations["disable_source_news_sources_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/people/feed": {
         parameters: {
             query?: never;
@@ -316,6 +370,15 @@ export interface components {
             interval: components["schemas"]["Interval"];
             /** @default 1M */
             span: components["schemas"]["Span"];
+        };
+        /** CatalogResponse */
+        CatalogResponse: {
+            status: components["schemas"]["SourceStatus"];
+            /**
+             * Sources
+             * @default []
+             */
+            sources: components["schemas"]["SuggestedSource"][];
         };
         /** FeedError */
         FeedError: {
@@ -582,6 +645,11 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** SourceNameRequest */
+        SourceNameRequest: {
+            /** Name */
+            name: string;
+        };
         /**
          * SourceStatus
          * @enum {string}
@@ -600,6 +668,18 @@ export interface components {
              * @default []
              */
             sources: components["schemas"]["SourceConnection"][];
+        };
+        /** SuggestedSource */
+        SuggestedSource: {
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /**
+             * Urls
+             * @default []
+             */
+            urls: string[];
         };
         /**
          * SwapCurve
@@ -908,6 +988,92 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AddFeedRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    news_catalog_news_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogResponse"];
+                };
+            };
+        };
+    };
+    enable_source_news_sources_enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceNameRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_source_news_sources_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceNameRequest"];
             };
         };
         responses: {
