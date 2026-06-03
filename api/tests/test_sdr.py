@@ -2,37 +2,29 @@
 plus the fetch/unzip shell (monkeypatched, no network)."""
 
 import asyncio
+import io
+import zipfile
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from app.models import SwapCurve, SwapTenorPoint, SwapsResponse, SourceStatus
-
-
-def test_models_camel_case_on_the_wire():
-    point = SwapTenorPoint(
-        tenor_label="10Y", tenor_years=10.0, rate_pct=3.98, trade_count=2, total_notional=75_000_000.0
-    )
-    dumped = point.model_dump(by_alias=True)
-    assert dumped["tenorLabel"] == "10Y"
-    assert dumped["totalNotional"] == 75_000_000.0
-
-    curve = SwapCurve(key="sofr", label="SOFR OIS", obs_date=1_700_000_000_000, points=[point])
-    resp = SwapsResponse(status=SourceStatus.OK, file_date=1_700_000_000_000, curves=[curve])
-    body = resp.model_dump(by_alias=True)
-    assert body["fileDate"] == 1_700_000_000_000
-    assert body["curves"][0]["key"] == "sofr"
-    assert body["curves"][0]["points"][0]["tenorLabel"] == "10Y"
-
-
+from app.adapters.base import SourceUnavailable
 from app.adapters.sdr import (
+    SdrAdapter,
+    aggregate,
+    bucket_tenor,
     classify_underlier,
     parse_notional,
+    parse_rates_csv,
     pick_fixed_rate,
     tenor_years,
-    bucket_tenor,
-    aggregate,
-    parse_rates_csv,
+)
+from app.cache import cache
+from app.models import (
+    SourceStatus,
+    SwapCurve,
+    SwapsResponse,
+    SwapTenorPoint,
 )
 
 # Minimal fixture: only the columns the parser reads (real files have 110).
@@ -55,6 +47,22 @@ FIXTURE_CSV = (
     # MODI action -> EXCLUDED
     "MODI,IR,2025-06-02,2035-06-02,,0.05,10000000,,USD-SOFR-OIS Compound\n"
 )
+
+
+def test_models_camel_case_on_the_wire():
+    point = SwapTenorPoint(
+        tenor_label="10Y", tenor_years=10.0, rate_pct=3.98, trade_count=2, total_notional=75_000_000.0
+    )
+    dumped = point.model_dump(by_alias=True)
+    assert dumped["tenorLabel"] == "10Y"
+    assert dumped["totalNotional"] == 75_000_000.0
+
+    curve = SwapCurve(key="sofr", label="SOFR OIS", obs_date=1_700_000_000_000, points=[point])
+    resp = SwapsResponse(status=SourceStatus.OK, file_date=1_700_000_000_000, curves=[curve])
+    body = resp.model_dump(by_alias=True)
+    assert body["fileDate"] == 1_700_000_000_000
+    assert body["curves"][0]["key"] == "sofr"
+    assert body["curves"][0]["points"][0]["tenorLabel"] == "10Y"
 
 
 def test_classify_underlier():
@@ -125,13 +133,6 @@ def test_parse_rates_csv_filters_classifies_and_aggregates():
     cpi = by_key["cpi"]
     assert [p.tenor_label for p in cpi.points] == ["1Y"]
     assert cpi.points[0].rate_pct == pytest.approx(3.235)
-
-
-from app.adapters.sdr import SdrAdapter
-from app.adapters.base import SourceUnavailable
-from app.cache import cache
-import io
-import zipfile
 
 
 def test_get_swap_rates_walks_back_to_first_available(monkeypatch):
