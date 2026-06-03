@@ -83,6 +83,21 @@ export async function addFeed(name: string, url: string): Promise<Schemas["FeedL
   return unwrap(data, error);
 }
 
+export async function loadCatalog(): Promise<Schemas["CatalogResponse"]> {
+  const { data, error } = await api.GET("/news/catalog", {});
+  return unwrap(data, error);
+}
+
+export async function enableSource(name: string): Promise<Schemas["FeedListResponse"]> {
+  const { data, error } = await api.POST("/news/sources/enable", { body: { name } });
+  return unwrap(data, error);
+}
+
+export async function disableSource(name: string): Promise<Schemas["FeedListResponse"]> {
+  const { data, error } = await api.POST("/news/sources/disable", { body: { name } });
+  return unwrap(data, error);
+}
+
 // Unified chart/quote loaders. The backend symbol resolver routes crypto vs
 // equity from the raw symbol (e.g. `btc`, `BTC/USD`, `aapl`), so the frontend
 // just passes the symbol through. Both normalize to a common shape so widgets

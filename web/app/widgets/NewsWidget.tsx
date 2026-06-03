@@ -3,16 +3,26 @@
 import { useCallback, useEffect, useState } from "react";
 import { ResourceView, WidgetFrame } from "../components/ui";
 import WidgetSettingsMenu from "../components/WidgetSettingsMenu";
-import { addFeed, loadFeeds, loadNews } from "../lib/loaders";
+import {
+  addFeed,
+  disableSource,
+  enableSource,
+  loadCatalog,
+  loadFeeds,
+  loadNews,
+} from "../lib/loaders";
+import { loadEnabledSources, saveEnabledSources, withoutSource, withSource } from "../lib/newsSources";
 import { useResource } from "../lib/useResource";
 import { terminalStore } from "../lib/store";
-import type { FeedInfo } from "../lib/api/client";
+import type { FeedInfo, SuggestedSource } from "../lib/api/client";
 import { absTime, timeAgo } from "../lib/format";
 
 // Feed chips + add-feed form. Clicking a feed runs `news <NAME>` (opens/focuses
 // that feed's tab); adding a feed POSTs then opens it.
 function FeedBar({ active }: { active?: string }) {
   const [feeds, setFeeds] = useState<FeedInfo[]>([]);
+  const [catalog, setCatalog] = useState<SuggestedSource[]>([]);
+  const [enabled, setEnabled] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,11 +38,35 @@ function FeedBar({ active }: { active?: string }) {
   }, []);
 
   useEffect(() => {
-    // On-demand fetch of the feed list (external read, setState only after
-    // await) — same justified exception as useResource.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refreshFeeds();
+    // On mount: re-register the user's enabled suggested sources (the backend
+    // registry is in-memory and resets on restart, so localStorage is the durable
+    // source of truth), then load the chips + the suggested-source catalog.
+    // External reads; setState happens inside the async IIFE (not synchronously
+    // in the effect body), same justified exception as useResource.
+    void (async () => {
+      const want = loadEnabledSources();
+      setEnabled(want);
+      await Promise.all(want.map((n) => enableSource(n).catch(() => {})));
+      await refreshFeeds();
+      try {
+        setCatalog((await loadCatalog()).sources ?? []);
+      } catch {
+        /* non-fatal: picker just won't show */
+      }
+    })();
   }, [refreshFeeds]);
+
+  async function toggleSource(srcName: string, on: boolean) {
+    const next = on ? withSource(enabled, srcName) : withoutSource(enabled, srcName);
+    setEnabled(next);
+    saveEnabledSources(next);
+    try {
+      await (on ? enableSource(srcName) : disableSource(srcName));
+    } catch {
+      /* leave localStorage as-is; a refresh / remount will re-sync */
+    }
+    await refreshFeeds();
+  }
 
   async function onAdd() {
     if (!name.trim() || !url.trim()) {
@@ -98,6 +132,51 @@ function FeedBar({ active }: { active?: string }) {
           );
         })}
       </div>
+      {catalog.length > 0 && (
+        <div style={{ marginBottom: "0.6rem" }}>
+          <div
+            style={{
+              color: "var(--muted)",
+              fontSize: "0.72rem",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              marginBottom: "0.35rem",
+            }}
+          >
+            Suggested sources
+          </div>
+          {Object.entries(groupByCategory(catalog)).map(([cat, srcs]) => (
+            <div key={cat} style={{ marginBottom: "0.4rem" }}>
+              <div style={{ color: "var(--muted)", fontSize: "0.68rem", marginBottom: "0.25rem" }}>{cat}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                {srcs.map((s) => {
+                  const on = enabled.includes(s.name.toUpperCase());
+                  return (
+                    <button
+                      key={s.name}
+                      onClick={() => void toggleSource(s.name, !on)}
+                      title={s.urls.join("\n")}
+                      style={{
+                        background: on ? "var(--accent)" : "transparent",
+                        color: on ? "var(--background)" : "var(--muted)",
+                        border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+                        borderRadius: 999,
+                        padding: "0.2rem 0.7rem",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        fontSize: "0.78rem",
+                      }}
+                    >
+                      {on ? "✓ " : "+ "}
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
         <input
           value={name}
@@ -118,6 +197,13 @@ function FeedBar({ active }: { active?: string }) {
       {err && <p style={{ color: "var(--error)", fontSize: "0.78rem", marginTop: "0.3rem" }}>{err}</p>}
     </div>
   );
+}
+
+// Group catalog sources by category, preserving first-seen category order.
+function groupByCategory(sources: SuggestedSource[]): Record<string, SuggestedSource[]> {
+  const groups: Record<string, SuggestedSource[]> = {};
+  for (const s of sources) (groups[s.category] ??= []).push(s);
+  return groups;
 }
 
 function inputStyle(width: number): React.CSSProperties {
