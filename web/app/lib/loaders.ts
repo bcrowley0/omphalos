@@ -107,11 +107,19 @@ export type QuoteData = {
   status: Schemas["SourceStatus"];
   message?: string | null;
   quote: Schemas["Quote"] | null | undefined;
+  periodChanges: Schemas["PeriodChange"][];
+  periodStatus: Schemas["SourceStatus"];
 };
 
 export async function loadQuoteData(symbol: string): Promise<QuoteData> {
   const r = await loadQuote(symbol);
-  return { status: r.status, message: r.message, quote: r.quote };
+  return {
+    status: r.status,
+    message: r.message,
+    quote: r.quote,
+    periodChanges: r.periodChanges ?? [],
+    periodStatus: r.periodStatus ?? "ok",
+  };
 }
 
 // Composite loader for the watchlist: fetch a quote per watched symbol. Returns
