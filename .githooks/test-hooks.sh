@@ -41,6 +41,25 @@ test_pre_commit() {
   rm -rf "$d"
 }
 
+test_pre_push() {
+  # pre-push reads quad lines on stdin: <local ref> <sha> <remote ref> <sha>.
+  local hook="$REPO_ROOT/.githooks/pre-push"
+  local z=0000000000000000000000000000000000000000
+  if printf 'refs/heads/main %s refs/heads/main %s\n' "$z" "$z" \
+       | "$hook" origin https://example/x >/dev/null 2>&1; then
+    bad "pre-push should reject a push targeting refs/heads/main"
+  else
+    ok "pre-push rejects a push targeting refs/heads/main"
+  fi
+  if printf 'refs/heads/feat/x %s refs/heads/feat/x %s\n' "$z" "$z" \
+       | "$hook" origin https://example/x >/dev/null 2>&1; then
+    ok "pre-push allows a push targeting a feature branch"
+  else
+    bad "pre-push should allow a push targeting a feature branch"
+  fi
+}
+
 test_pre_commit
+test_pre_push
 echo "--- $pass passed, $fail failed ---"
 [ "$fail" -eq 0 ]
