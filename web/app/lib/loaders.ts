@@ -63,7 +63,10 @@ export async function loadNews(feed?: string): Promise<Schemas["NewsResponse"]> 
 
 export async function loadPeopleFeed(people: Person[]): Promise<Schemas["PeopleFeedResponse"]> {
   const { data, error } = await api.POST("/people/feed", {
-    body: { people: people.map((p) => ({ name: p.name, feeds: p.feeds })), limitPerPerson: 25 },
+    body: {
+      people: people.map((p) => ({ name: p.name, enabled: p.enabled, anchors: p.anchors })),
+      limitPerPerson: 25,
+    },
   });
   return unwrap(data, error);
 }
