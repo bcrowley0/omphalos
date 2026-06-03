@@ -20,7 +20,7 @@ from typing import Any
 
 from ..models import Candle, IbkrAuthState, Interval, Position, Quote, Span
 from .base import Adapter, SourceUnavailable, Unauthenticated
-from .ibkr_transport import GatewayTransport, IbkrTransport
+from .ibkr_transport import GatewayTransport, IbkrTransport, OAuthTransport
 
 # Numeric snapshot field codes -> canonical names (IBKR Web API reference).
 _FIELDS: dict[str, str] = {
@@ -48,6 +48,30 @@ def _num(value: Any) -> float | None:
         return float(value)
     m = _NUM_RE.search(str(value).replace(",", ""))
     return float(m.group()) if m else None
+
+
+def _make_oauth_config(settings: Any) -> Any:
+    """Build ibind's OAuth1aConfig from settings. Imported lazily so the app
+    boots without ibind when only the gateway path is used.
+
+    init_oauth / init_brokerage_session / maintain_oauth are disabled: this
+    client is used only to run the live-session-token handshake explicitly via
+    OAuthTransport; we don't want ibind auto-handshaking or spawning a keepalive
+    thread on construction. (Validated end-to-end in the manual live test.)
+    """
+    from ibind.oauth.oauth1a import OAuth1aConfig
+
+    return OAuth1aConfig(
+        consumer_key=settings.ibkr_oauth_consumer_key,
+        access_token=settings.ibkr_oauth_access_token,
+        access_token_secret=settings.ibkr_oauth_access_token_secret,
+        dh_prime=settings.ibkr_oauth_dh_prime,
+        encryption_key_fp=settings.ibkr_oauth_encryption_key_path,
+        signature_key_fp=settings.ibkr_oauth_signature_key_path,
+        init_oauth=False,
+        init_brokerage_session=False,
+        maintain_oauth=False,
+    )
 
 
 def gateway_login_url(base_url: str) -> str:
@@ -182,9 +206,12 @@ class IbkrAdapter(Adapter):
         return self._transport
 
     def _build_transport(self) -> IbkrTransport:
-        from ..config import get_settings
+        from ..config import get_settings, resolve_ibkr_auth_mode
 
-        return GatewayTransport(get_settings().ibkr_gateway_base_url)
+        settings = get_settings()
+        if resolve_ibkr_auth_mode(settings) == "oauth":
+            return OAuthTransport(_make_oauth_config(settings))
+        return GatewayTransport(settings.ibkr_gateway_base_url)
 
     async def _get(self, path: str, **kwargs: Any) -> Any:
         return await self._t().get(path, **kwargs)

@@ -116,3 +116,23 @@ def test_oauth_ensure_session_bad_creds_raises_unauthenticated(monkeypatch):
         asyncio.run(t.ensure_session())
     assert "check api/.env" in str(exc.value)
     assert t._brokerage_ready is False
+
+
+from app.adapters.ibkr import IbkrAdapter
+from app.adapters.ibkr_transport import GatewayTransport, OAuthTransport
+
+
+def test_adapter_builds_gateway_transport_by_default(monkeypatch):
+    monkeypatch.setattr("app.config.get_settings", lambda: Settings(_env_file=None))
+    a = IbkrAdapter()
+    assert isinstance(a._build_transport(), GatewayTransport)
+
+
+def test_adapter_builds_oauth_transport_when_configured(monkeypatch):
+    monkeypatch.setattr("app.config.get_settings", lambda: _oauth_settings())
+    # Avoid constructing a real ibind config / reading key files in this unit test.
+    monkeypatch.setattr(
+        "app.adapters.ibkr._make_oauth_config", lambda s: SimpleNamespace(consumer_key="C")
+    )
+    a = IbkrAdapter()
+    assert isinstance(a._build_transport(), OAuthTransport)
