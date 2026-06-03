@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta, timezone
 from ..cache import cache
 from ..http import get_bytes
 from ..models import SwapCurve, SwapTenorPoint
-from .base import Adapter, SourceUnavailable
+from .base import Adapter, SourceUnavailable, Unauthenticated
 
 _BASE = "https://kgc0418-tdw-data-0.s3.amazonaws.com/cftc/eod"
 _TTL = 3600.0          # one new file per UTC day; cache the parsed result an hour
@@ -183,7 +183,11 @@ class SdrAdapter(Adapter):
 
     async def _fetch_csv(self, d: date) -> str:
         """Fetch the day's ZIP and return its single CSV member as text.
-        A missing file surfaces as SourceUnavailable (S3 404) via get_bytes."""
+
+        A not-yet-published date surfaces as a "file unavailable" exception: this
+        public S3 bucket denies ListBucket, so a missing key returns HTTP 403
+        (mapped to Unauthenticated), not 404 — the walk-back treats both as
+        "try the previous day"."""
         content = await get_bytes(self._url(d), source="sdr")
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
             member = zf.namelist()[0]
@@ -194,7 +198,6 @@ class SdrAdapter(Adapter):
         """Latest available EOD file: walk back from today (UTC) until a file is
         found, parse SOFR + US CPI rate-by-tenor, cache the result per file date."""
         today = datetime.now(timezone.utc).date()
-        last_exc: Exception | None = None
         for back in range(_WALKBACK_DAYS + 1):
             d = today - timedelta(days=back)
             obs_ms = int(
@@ -207,7 +210,10 @@ class SdrAdapter(Adapter):
 
             try:
                 return await cache.get_or_set(f"sdr:swaps:{d.isoformat()}", _TTL, build)
-            except SourceUnavailable as exc:
-                last_exc = exc
+            except (SourceUnavailable, Unauthenticated):
+                # Either status means "no file for this date" (see _fetch_csv);
+                # fall back to the previous day rather than surfacing it.
                 continue
-        raise last_exc or SourceUnavailable("sdr: no recent RATES file found")
+        # Public source: exhausting the window is a "source down", never an auth
+        # problem — surface it as such (not the last 403 we saw).
+        raise SourceUnavailable("sdr: no recent RATES file found in the lookback window")

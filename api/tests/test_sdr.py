@@ -158,11 +158,35 @@ def test_get_swap_rates_walks_back_to_first_available(monkeypatch):
     assert sofr.obs_date == expected_ms
 
 
-def test_get_swap_rates_raises_when_no_file_in_window(monkeypatch):
+def test_get_swap_rates_walks_back_past_403_for_unpublished_day(monkeypatch):
+    # DTCC's public S3 bucket denies ListBucket, so a not-yet-published date
+    # returns HTTP 403 (-> Unauthenticated), NOT 404. The walk-back must treat a
+    # 403 as "file not available, try the previous day".
+    from app.adapters.base import Unauthenticated
+
+    cache._store.clear()
+    today = datetime.now(timezone.utc).date()
+    available = today - timedelta(days=1)
+
+    async def fake_fetch(self, d):
+        if d == available:
+            return FIXTURE_CSV
+        raise Unauthenticated("sdr requires authentication (HTTP 403)")
+
+    monkeypatch.setattr(SdrAdapter, "_fetch_csv", fake_fetch)
+    curves = asyncio.run(SdrAdapter().get_swap_rates())
+    assert {c.key for c in curves} == {"sofr", "cpi"}
+
+
+def test_get_swap_rates_raises_source_unavailable_when_no_file_in_window(monkeypatch):
+    # A public source that runs out of files is "source down", never an auth
+    # problem — even if every probe 403'd, we surface SourceUnavailable.
+    from app.adapters.base import Unauthenticated
+
     cache._store.clear()
 
     async def fake_fetch(self, d):
-        raise SourceUnavailable("sdr error (HTTP 404)")
+        raise Unauthenticated("sdr requires authentication (HTTP 403)")
 
     monkeypatch.setattr(SdrAdapter, "_fetch_csv", fake_fetch)
     with pytest.raises(SourceUnavailable):
