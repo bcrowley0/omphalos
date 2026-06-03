@@ -41,26 +41,33 @@ fi
 echo "[ship] pushing $branch -> origin"
 git push -u origin "$branch"
 
-# 4. Open a PR into main, or reuse the existing one. --fill writes the title/body
-#    from the commit(s).
-if gh pr view "$branch" >/dev/null 2>&1; then
-  echo "[ship] PR already open for $branch"
+# 4. Open a PR into main, or reuse an *open* one for this branch. --fill writes
+#    the title/body from the commit(s). We match only OPEN PRs by number — a
+#    reused branch name (worktrees recycle names) may have an old merged/closed
+#    PR, and `gh pr view <branch>` would wrongly return that stale one.
+open_pr() { gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty'; }
+pr="$(open_pr)"
+if [ -n "$pr" ]; then
+  echo "[ship] reusing open PR #$pr for $branch"
 else
   echo "[ship] opening PR into main"
   gh pr create --base main --fill
+  pr="$(open_pr)"
 fi
 
-# 5. Merge (GitHub-side squash), unless --no-merge.
+# 5. Merge (GitHub-side squash) the specific PR, unless --no-merge. Delete the
+#    remote branch ONLY after the merge succeeds (never unconditionally).
 if [ "$MERGE" -eq 1 ]; then
-  echo "[ship] squash-merging PR into main"
-  gh pr merge "$branch" --squash
+  [ -n "$pr" ] || { echo "error: no open PR found to merge"; exit 1; }
+  echo "[ship] squash-merging PR #$pr into main"
+  gh pr merge "$pr" --squash
   git push origin --delete "$branch" 2>/dev/null || true
   cat <<EOF
 
-[ship] merged into main; remote branch deleted.
+[ship] merged PR #$pr into main; remote branch deleted.
 Remove this worktree when done (run from the MAIN checkout, not here):
     git worktree remove "$PWD" && git branch -D "$branch"
 EOF
 else
-  echo "[ship] PR is open; merge it on GitHub when ready (re-run without --no-merge to auto-merge)."
+  echo "[ship] PR #${pr:-?} is open; merge it on GitHub when ready (re-run without --no-merge to auto-merge)."
 fi
