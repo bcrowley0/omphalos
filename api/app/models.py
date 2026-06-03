@@ -284,15 +284,24 @@ class FollowItem(CamelModel):
     url: str
     published_ts: int | None = None  # UTC epoch ms
     source: str  # human label, e.g. "Google News", "YouTube", domain
-    kind: str  # "news" | "video" | "blog" | "podcast"
+    kind: str  # "news" | "video" | "podcast" | "blog" | "speech"
     publisher: str | None = None  # the outlet (e.g. "Reuters"); None if unknown
     primary: bool = False  # first-party OR wire-grade/official source (vs rehash)
     relevant: bool = False  # the item is about the person (name in title / first-party)
 
 
+class PersonAnchors(CamelModel):
+    youtube: str | None = None   # @handle | channel URL | channelId — locks the channel
+    podcast: str | None = None   # podcast feed URL — locks the show
+    writing: list[str] = []      # blog/Substack/Medium RSS — writing's only source
+
+
 class PersonRef(CamelModel):
     name: str
-    feeds: list[str] = []  # optional custom feed URLs (blog / YouTube / podcast)
+    # Per-content-type on/off. Missing key => default-on, EXCEPT "writing" which is
+    # on iff an anchor exists. Keys: news | videos | podcasts | speeches | writing.
+    enabled: dict[str, bool] = {}
+    anchors: PersonAnchors = PersonAnchors()
 
 
 class PeopleFeedRequest(CamelModel):

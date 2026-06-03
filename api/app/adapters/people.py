@@ -9,6 +9,7 @@ name (free, no key, headlines link out) plus optional first-party feeds.
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import urllib.parse
 from typing import Any
@@ -16,7 +17,7 @@ from typing import Any
 from ..cache import cache
 from ..dedupe import dedupe_by_url_recent
 from ..http import get_text
-from ..models import FollowItem, NewsItem
+from ..models import FollowItem, NewsItem, PersonRef
 from .base import Adapter, SourceUnavailable
 from .rss import parse_feed
 
@@ -39,6 +40,94 @@ def derive_kind(url: str) -> str:
     if "news.google.com" in u:
         return "news"
     return "blog"
+
+
+# Talk/speech keywords: a video OR podcast item whose title matches is a "speech".
+_SPEECH_KEYWORDS = (
+    "keynote", "talk", "lecture", "fireside", "interview", "testimony",
+    "address", "speaks at", "conference", "summit", "panel", "commencement",
+    "q&a", "qanda", "remarks", "speech",
+)
+
+_SPEECH_RE = re.compile(
+    r"\b(" + "|".join(re.escape(k) for k in _SPEECH_KEYWORDS) + r")\b", re.IGNORECASE
+)
+# "address" as a speech must not match technical uses like "MAC address" or
+# "IP address" — require it is NOT preceded by an all-caps or network-style token.
+_ADDRESS_EXCLUDE_RE = re.compile(r"\b(?:MAC|IP|URL|DNS|WEB)\s+address\b", re.IGNORECASE)
+
+
+def classify_speech(title: str) -> bool:
+    """True if a video/audio title looks like a talk/speech (whole-word match, so
+    'talking'/'addressable' don't false-positive). Pure/testable."""
+    if not _SPEECH_RE.search(title):
+        return False
+    # If the only keyword match is "address" in a technical context, suppress it.
+    without_tech_address = _ADDRESS_EXCLUDE_RE.sub("", title)
+    return bool(_SPEECH_RE.search(without_tech_address))
+
+
+def classify_feed_url(url: str) -> str:
+    """Route an attached/anchored URL to 'youtube' | 'podcast' | 'writing'. Pure."""
+    u = url.lower().strip()
+    if u.startswith("@") or "youtube.com" in u or "youtu.be" in u:
+        return "youtube"
+    if "podcasts.apple.com" in u or "megaphone" in u or "libsyn" in u or "/podcast" in u or "feeds.simplecast" in u:
+        return "podcast"
+    return "writing"
+
+
+def itunes_search_url(name: str) -> str:
+    """Keyless iTunes podcast search for a person's shows. Pure/testable."""
+    q = urllib.parse.quote(name, safe="")
+    return f"https://itunes.apple.com/search?media=podcast&entity=podcast&limit=5&term={q}"
+
+
+def parse_itunes_podcasts(body: str, name: str) -> list[str]:
+    """Extract podcast feed URLs from an iTunes Search response, keeping only shows
+    whose artist/collection name plausibly matches the person. Pure/testable."""
+    try:
+        data = json.loads(body)
+    except (ValueError, TypeError):
+        return []
+    feeds: list[str] = []
+    for r in data.get("results", []):
+        feed = r.get("feedUrl")
+        if not feed:
+            continue
+        haystack = f"{r.get('artistName', '')} {r.get('collectionName', '')}"
+        if title_mentions_person(haystack, name):
+            feeds.append(feed)
+    return feeds
+
+
+def youtube_search_url(name: str) -> str:
+    """YouTube results page filtered to channels (sp=EgIQAg) for name->channel
+    discovery. Pure/testable."""
+    q = urllib.parse.quote(name, safe="")
+    return f"https://www.youtube.com/results?search_query={q}&sp=EgIQAg%3D%3D"
+
+
+def channel_rss_url(channel_id: str) -> str:
+    """YouTube channel uploads RSS. Pure/testable."""
+    return f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+
+
+_CHANNEL_ID_RE = re.compile(r'"channelId":"(UC[0-9A-Za-z_-]{20,})"')
+_CANONICAL_CHANNEL_RE = re.compile(r'/channel/(UC[0-9A-Za-z_-]{20,})')
+_RESOLVE_TTL = 86400.0  # 24h — a handle->channelId mapping rarely changes
+_CHANNEL_TITLE_RE = re.compile(r'"channelId":"UC[0-9A-Za-z_-]{20,}".{0,200}?"title":"([^"]+)"')
+
+
+def extract_channel_id(html: str) -> str | None:
+    """Pull a YouTube channelId from a channel or search-results page. Tries the
+    embedded ytInitialData "channelId" first, then a /channel/UC… canonical link.
+    Pure/testable."""
+    m = _CHANNEL_ID_RE.search(html)
+    if m:
+        return m.group(1)
+    m = _CANONICAL_CHANNEL_RE.search(html)
+    return m.group(1) if m else None
 
 
 # Publishers treated as "primary": wire-grade original reporting + press-release
@@ -126,11 +215,20 @@ def dedupe_stories(items: list[FollowItem]) -> list[FollowItem]:
     return sorted(kept, key=lambda i: (i.published_ts is not None, i.published_ts or 0), reverse=True)
 
 
-def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> list[FollowItem]:
+def to_follow_items(
+    news: list[NewsItem],
+    person: str,
+    source_label: str,
+    kind_override: str | None = None,
+) -> list[FollowItem]:
     """Convert canonical NewsItems -> FollowItems, tagging person/kind/source and
     classifying primary vs secondary. Google News items derive their publisher
     from the title suffix (which is stripped from the display title); first-party
-    feeds (anything not Google News) are always primary."""
+    feeds (anything not Google News) are always primary.
+
+    ``kind_override`` forces the kind for every item (e.g. ``"podcast"`` for
+    podcast feeds, whose URLs would otherwise classify as ``"blog"``).
+    """
     first_party = source_label != _GOOGLE_NEWS
     items: list[FollowItem] = []
     for n in news:
@@ -148,13 +246,24 @@ def to_follow_items(news: list[NewsItem], person: str, source_label: str) -> lis
                 url=n.url,
                 published_ts=n.published_ts,
                 source=source_label,
-                kind=derive_kind(n.url),
+                kind=kind_override or derive_kind(n.url),
                 publisher=publisher,
                 primary=primary,
                 relevant=relevant,
             )
         )
     return items
+
+
+def apply_speech_classification(items: list[FollowItem]) -> list[FollowItem]:
+    """Upgrade talk-like video/audio items to kind='speech'. Pure/testable."""
+    out: list[FollowItem] = []
+    for it in items:
+        if it.kind in ("video", "podcast") and classify_speech(it.title):
+            out.append(it.model_copy(update={"kind": "speech"}))
+        else:
+            out.append(it)
+    return out
 
 
 def merge_dedupe_sort(items: list[FollowItem]) -> list[FollowItem]:
@@ -171,27 +280,110 @@ class PeopleAdapter(Adapter):
     async def _fetch(self, url: str) -> str:
         return await get_text(url, source="people", client=self._client, headers={"User-Agent": _UA}, follow_redirects=True)
 
-    async def get_person_feed(self, name: str, feeds: list[str] | None = None) -> list[FollowItem]:
-        feeds = feeds or []
-        sources: list[tuple[str, str]] = [(google_news_search_url(name), _GOOGLE_NEWS)]
-        for f in feeds:
-            label = "YouTube" if "youtube" in f.lower() else urllib.parse.urlparse(f).netloc or f
-            sources.append((f, label))
+    async def resolve_youtube_anchor(self, anchor: str) -> str | None:
+        """@handle / channel URL / channelId -> channel uploads RSS. A bare
+        channelId and a /channel/UC… URL skip the network; an @handle fetches the
+        channel page once (cached)."""
+        a = anchor.strip()
+        if a.startswith("UC") and "/" not in a and " " not in a:
+            return channel_rss_url(a)
+        cid = extract_channel_id(a)  # catches /channel/UC… inside a pasted URL
+        if cid:
+            return channel_rss_url(cid)
+
+        async def fetch() -> str | None:
+            url = a if a.startswith("http") else "https://www.youtube.com/" + (a if a.startswith("@") else "@" + a)
+            try:
+                html = await self._fetch(url)
+            except Exception:  # noqa: BLE001
+                return None
+            resolved = extract_channel_id(html)
+            return channel_rss_url(resolved) if resolved else None
+
+        return await cache.get_or_set(f"yt-anchor:{a}", _RESOLVE_TTL, fetch)
+
+    async def discover_youtube_channel(self, name: str) -> str | None:
+        """Best-effort name -> channel uploads RSS via the public channel-search
+        page. Accept ONLY if the top channel's title matches the person's name;
+        otherwise return None (no wrong-person noise). Cached long-TTL."""
+        async def fetch() -> str | None:
+            try:
+                html = await self._fetch(youtube_search_url(name))
+            except Exception:  # noqa: BLE001
+                return None
+            cid = extract_channel_id(html)
+            if not cid:
+                return None
+            m = _CHANNEL_TITLE_RE.search(html)
+            title = m.group(1) if m else ""
+            if not title_mentions_person(title, name):
+                return None
+            return channel_rss_url(cid)
+
+        return await cache.get_or_set(f"yt-discover:{name}", _RESOLVE_TTL, fetch)
+
+    def _enabled(self, person: PersonRef, kind: str) -> bool:
+        if kind == "writing":
+            return person.enabled.get("writing", bool(person.anchors.writing))
+        return person.enabled.get(kind, True)
+
+    async def _feed_items(self, url: str, name: str, label: str, kind_override: str | None) -> list[FollowItem]:
+        try:
+            xml = await self._fetch(url)
+        except Exception:  # noqa: BLE001 - one bad feed never kills the rest
+            return []
+        return to_follow_items(parse_feed(xml, label), name, label, kind_override=kind_override)
+
+    async def _video_items(self, name: str, anchor: str | None) -> list[FollowItem]:
+        rss = await self.resolve_youtube_anchor(anchor) if anchor else await self.discover_youtube_channel(name)
+        if not rss:
+            return []
+        return await self._feed_items(rss, name, "YouTube", kind_override=None)
+
+    async def _podcast_items(self, name: str, anchor: str | None) -> list[FollowItem]:
+        if anchor:
+            feeds = [anchor]
+        else:
+            try:
+                body = await self._fetch(itunes_search_url(name))
+            except Exception:  # noqa: BLE001
+                return []
+            feeds = parse_itunes_podcasts(body, name)
+        results = await asyncio.gather(
+            *(self._feed_items(f, name, "Podcast", kind_override="podcast") for f in feeds)
+        )
+        return [it for sub in results for it in sub]
+
+    async def get_person_feed(self, person: PersonRef) -> list[FollowItem]:
+        name = person.name
+        anchors = person.anchors
+        tasks: list[Any] = []
+        if self._enabled(person, "news"):
+            tasks.append(self._feed_items(google_news_search_url(name), name, _GOOGLE_NEWS, None))
+        if self._enabled(person, "videos"):
+            tasks.append(self._video_items(name, anchors.youtube))
+        if self._enabled(person, "podcasts"):
+            tasks.append(self._podcast_items(name, anchors.podcast))
+        if self._enabled(person, "writing"):
+            for url in anchors.writing:
+                label = urllib.parse.urlparse(url).netloc or url
+                tasks.append(self._feed_items(url, name, label, None))
+
+        speeches_on = self._enabled(person, "speeches")
+        cache_key = (
+            f"people:{name}:"
+            f"{sorted(person.enabled.items())}:"
+            f"{anchors.youtube}:{anchors.podcast}:{','.join(sorted(anchors.writing))}"
+        )
 
         async def fetch_all() -> list[FollowItem]:
-            async def one(url: str, label: str) -> list[FollowItem]:
-                try:
-                    xml = await self._fetch(url)
-                except Exception:  # noqa: BLE001 - skip a single bad feed, keep the rest
-                    return []
-                return to_follow_items(parse_feed(xml, label), name, label)
-
-            results = await asyncio.gather(*(one(url, label) for url, label in sources))
+            results = await asyncio.gather(*tasks)
             flat = [it for sub in results for it in sub]
             if not flat:
                 raise SourceUnavailable(f"No items found for {name}")
-            # dedupe exact URLs, then collapse the same story across outlets
-            return dedupe_stories(merge_dedupe_sort(flat))
+            flat = dedupe_stories(merge_dedupe_sort(flat))
+            if speeches_on:
+                flat = apply_speech_classification(flat)
+            return flat
 
-        key = f"people:{name}:{','.join(sorted(feeds))}"
-        return await cache.get_or_set(key, _PERSON_TTL, fetch_all)
+        return await cache.get_or_set(cache_key, _PERSON_TTL, fetch_all)

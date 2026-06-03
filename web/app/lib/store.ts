@@ -1,6 +1,7 @@
 import { parseCommand } from "./command/parser";
 import { commandToTab } from "./command/tabs";
-import type { Person, Tab } from "./command/types";
+import { classifyFeedUrl } from "./feedUrl";
+import type { ContentType, Person, Tab } from "./command/types";
 
 // Terminal UI state, persisted to localStorage (NON-secret UI state only:
 // watchlist + open tabs + active tab — CLAUDE.md). Implemented as an external
@@ -18,12 +19,16 @@ export type TerminalState = {
 
 const STORAGE_KEY = "omphalos.terminal.v1";
 
+const mkPerson = (name: string): Person => ({
+  name,
+  lastSeenTs: 0,
+  enabled: { news: true, videos: true, podcasts: true, speeches: true, writing: false },
+  anchors: { writing: [] },
+});
+
 const DEFAULT_FOLLOWING: Person[] = [
-  { name: "Paul Tudor Jones", feeds: [], lastSeenTs: 0 },
-  { name: "Stanley Druckenmiller", feeds: [], lastSeenTs: 0 },
-  { name: "Andrej Karpathy", feeds: [], lastSeenTs: 0 },
-  { name: "Boris Cherny", feeds: [], lastSeenTs: 0 },
-];
+  "Paul Tudor Jones", "Stanley Druckenmiller", "Andrej Karpathy", "Boris Cherny",
+].map(mkPerson);
 
 // Stable references for SSR / empty state (useSyncExternalStore requires
 // getServerSnapshot to be referentially stable).
@@ -38,6 +43,30 @@ const SERVER_STATE: TerminalState = {
 
 type Persisted = Pick<TerminalState, "tabs" | "activeId" | "watchlist" | "following">;
 
+function migratePerson(raw: unknown): Person {
+  const p = (raw ?? {}) as Record<string, unknown>;
+  const name = String(p.name ?? "");
+  const lastSeenTs = typeof p.lastSeenTs === "number" ? p.lastSeenTs : 0;
+  // Already-new shape: pass through.
+  if (p.enabled && p.anchors) {
+    return { name, lastSeenTs, enabled: p.enabled as Person["enabled"], anchors: p.anchors as Person["anchors"] };
+  }
+  const feeds = Array.isArray(p.feeds) ? (p.feeds as string[]) : [];
+  const anchors: Person["anchors"] = { writing: [] };
+  for (const url of feeds) {
+    const kind = classifyFeedUrl(url);
+    if (kind === "youtube" && !anchors.youtube) anchors.youtube = url;
+    else if (kind === "podcast" && !anchors.podcast) anchors.podcast = url;
+    else anchors.writing.push(url);
+  }
+  return {
+    name,
+    lastSeenTs,
+    enabled: { news: true, videos: true, podcasts: true, speeches: true, writing: anchors.writing.length > 0 },
+    anchors,
+  };
+}
+
 function loadPersisted(): Persisted {
   if (typeof window === "undefined")
     return { tabs: [], activeId: null, watchlist: [], following: DEFAULT_FOLLOWING };
@@ -49,7 +78,7 @@ function loadPersisted(): Persisted {
       tabs: Array.isArray(parsed.tabs) ? parsed.tabs : [],
       activeId: typeof parsed.activeId === "string" ? parsed.activeId : null,
       watchlist: Array.isArray(parsed.watchlist) ? parsed.watchlist : [],
-      following: Array.isArray(parsed.following) ? parsed.following : DEFAULT_FOLLOWING,
+      following: Array.isArray(parsed.following) ? (parsed.following as unknown[]).map(migratePerson) : DEFAULT_FOLLOWING,
     };
   } catch {
     return { tabs: [], activeId: null, watchlist: [], following: DEFAULT_FOLLOWING };
@@ -113,7 +142,7 @@ export class TerminalStore {
     if (cmd.kind === "follow") {
       following = following.some((p) => p.name === cmd.name)
         ? following
-        : [...following, { name: cmd.name, feeds: [], lastSeenTs: 0 }];
+        : [...following, mkPerson(cmd.name)];
     } else if (cmd.kind === "unfollow") {
       following = following.filter((p) => p.name !== cmd.name);
     }
@@ -172,9 +201,34 @@ export class TerminalStore {
     this.set({ ...this.state, watchlist: next });
   }
 
-  addPersonFeed(name: string, url: string) {
+  setPersonEnabled(name: string, type: ContentType, on: boolean) {
     const following = this.state.following.map((p) =>
-      p.name === name && !p.feeds.includes(url) ? { ...p, feeds: [...p.feeds, url] } : p,
+      p.name === name ? { ...p, enabled: { ...p.enabled, [type]: on } } : p,
+    );
+    this.set({ ...this.state, following });
+  }
+
+  setPersonAnchor(name: string, type: "youtube" | "podcast", value: string | null) {
+    const following = this.state.following.map((p) =>
+      p.name === name ? { ...p, anchors: { ...p.anchors, [type]: value ?? undefined } } : p,
+    );
+    this.set({ ...this.state, following });
+  }
+
+  addWritingFeed(name: string, url: string) {
+    const following = this.state.following.map((p) =>
+      p.name === name && !p.anchors.writing.includes(url)
+        ? { ...p, anchors: { ...p.anchors, writing: [...p.anchors.writing, url] }, enabled: { ...p.enabled, writing: true } }
+        : p,
+    );
+    this.set({ ...this.state, following });
+  }
+
+  removeWritingFeed(name: string, url: string) {
+    const following = this.state.following.map((p) =>
+      p.name === name
+        ? { ...p, anchors: { ...p.anchors, writing: p.anchors.writing.filter((u) => u !== url) } }
+        : p,
     );
     this.set({ ...this.state, following });
   }

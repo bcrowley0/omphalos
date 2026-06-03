@@ -338,7 +338,7 @@ async def people_feed(req: PeopleFeedRequest) -> PeopleFeedResponse:
     errors: list[FeedError] = []
     for p in req.people:
         try:
-            person_items = await adapter.get_person_feed(p.name, p.feeds)
+            person_items = await adapter.get_person_feed(p)
             # Keep ALL primary items (first-party + wire-grade/official) so the
             # primary-only view is never starved; cap only secondary rehash.
             primary = [i for i in person_items if i.primary]

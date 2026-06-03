@@ -559,15 +559,35 @@ export interface components {
              */
             errors: components["schemas"]["FeedError"][];
         };
+        /** PersonAnchors */
+        PersonAnchors: {
+            /** Youtube */
+            youtube?: string | null;
+            /** Podcast */
+            podcast?: string | null;
+            /**
+             * Writing
+             * @default []
+             */
+            writing: string[];
+        };
         /** PersonRef */
         PersonRef: {
             /** Name */
             name: string;
             /**
-             * Feeds
-             * @default []
+             * Enabled
+             * @default {}
              */
-            feeds: string[];
+            enabled: {
+                [key: string]: boolean;
+            };
+            /**
+             * @default {
+             *       "writing": []
+             *     }
+             */
+            anchors: components["schemas"]["PersonAnchors"];
         };
         /** PortfolioResponse */
         PortfolioResponse: {
