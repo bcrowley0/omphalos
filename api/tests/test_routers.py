@@ -134,3 +134,30 @@ def test_quote_endpoint_returns_period_ladder(monkeypatch):
     periods = [p["period"] for p in body["periodChanges"]]
     assert periods == ["1D", "1W", "1M", "3M", "YTD", "1Y", "5Y"]
     assert body["periodStatus"] == "ok"
+
+
+def test_quote_survives_period_history_failure(monkeypatch):
+    """A candles/history failure surfaces via periodStatus but must NOT drop the
+    live quote (CLAUDE.md rule 6)."""
+    ibkr = get_registry().get("ibkr")
+
+    async def _get_quote(symbol: str):
+        from app.models import Quote
+        return Quote(symbol=symbol, last=150.0, day_high=151.0, source="ibkr")
+
+    async def _get_candles(symbol: str, interval=None, span=None):
+        from app.adapters.base import SourceUnavailable
+        raise SourceUnavailable("history unavailable")
+
+    monkeypatch.setattr(ibkr, "get_quote", _get_quote)
+    monkeypatch.setattr(ibkr, "get_candles", _get_candles)
+
+    resp = client.get("/quote", params={"symbol": "AAPL"})
+    assert resp.status_code == 200
+    body = resp.json()
+    # Live quote still returned despite the history failure.
+    assert body["status"] == "ok"
+    assert body["quote"]["last"] == 150.0
+    # Failure surfaced as an explicit, non-ok period status; ladder empty.
+    assert body["periodStatus"] != "ok"
+    assert body["periodChanges"] == []
