@@ -479,6 +479,20 @@ export interface components {
              */
             errors: components["schemas"]["FeedError"][];
         };
+        /** PeriodChange */
+        PeriodChange: {
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "5Y";
+            /** Change */
+            change?: number | null;
+            /** Changepct */
+            changePct?: number | null;
+            /** Refclose */
+            refClose?: number | null;
+        };
         /** PersonRef */
         PersonRef: {
             /** Name */
@@ -548,6 +562,22 @@ export interface components {
             stale: boolean;
             /** Source */
             source: string;
+            /** Dayopen */
+            dayOpen?: number | null;
+            /** Dayhigh */
+            dayHigh?: number | null;
+            /** Daylow */
+            dayLow?: number | null;
+            /** Volume */
+            volume?: number | null;
+            /** Vwap */
+            vwap?: number | null;
+            /** Week52High */
+            week52High?: number | null;
+            /** Week52Low */
+            week52Low?: number | null;
+            /** Marketcap */
+            marketCap?: number | null;
         };
         /** QuoteResponse */
         QuoteResponse: {
@@ -555,6 +585,13 @@ export interface components {
             /** Message */
             message?: string | null;
             quote?: components["schemas"]["Quote"] | null;
+            /**
+             * Periodchanges
+             * @default []
+             */
+            periodChanges: components["schemas"]["PeriodChange"][];
+            /** @default ok */
+            periodStatus: components["schemas"]["SourceStatus"];
         };
         /** SourceConnection */
         SourceConnection: {
