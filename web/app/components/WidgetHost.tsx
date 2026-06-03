@@ -12,6 +12,7 @@ import HelpWidget from "../widgets/HelpWidget";
 import FollowingWidget from "../widgets/FollowingWidget";
 import PersonFeedWidget from "../widgets/PersonFeedWidget";
 import SettingsWidget from "../widgets/SettingsWidget";
+import SwapsWidget from "../widgets/SwapsWidget";
 
 // Render the widget for a tab. The `key` on the caller side ensures each tab
 // gets its own component instance (and its own data fetch).
@@ -25,6 +26,8 @@ export default function WidgetHost({ tab }: { tab: Tab }) {
       return <PortfolioWidget tabId={tab.id} />;
     case "yield":
       return <YieldWidget />;
+    case "swaps":
+      return <SwapsWidget />;
     case "news":
       return <NewsWidget feed={tab.feed} />;
     case "watchlist":
