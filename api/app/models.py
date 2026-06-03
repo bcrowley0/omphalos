@@ -232,6 +232,21 @@ class AddFeedRequest(CamelModel):
     url: str
 
 
+class SuggestedSource(CamelModel):
+    name: str
+    category: str  # groups the source in the picker UI (e.g. "Wire", "Macro", "Crypto")
+    urls: list[str] = []
+
+
+class CatalogResponse(CamelModel):
+    status: SourceStatus
+    sources: list[SuggestedSource] = []
+
+
+class SourceNameRequest(CamelModel):
+    name: str
+
+
 # --------------------------------------------------------------------------- #
 # People feed — follow individuals across news, YouTube, blogs, podcasts
 # --------------------------------------------------------------------------- #

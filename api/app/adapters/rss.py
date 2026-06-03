@@ -113,6 +113,41 @@ _DEFAULT_FEEDS: dict[str, list[str]] = {
     "ZOOMERFIED": [f"{_NITTER}/zoomerfied/rss"],
 }
 
+# Curated, OFF-by-default catalog the user can enable individually from the News
+# settings picker. NOT loaded into the live registry at startup (a suggested source
+# is absent from `list_feeds` / "ALL" until enabled), unlike _DEFAULT_FEEDS above.
+# `category` only groups them in the picker UI. Every URL was verified live (HTTP
+# 200, parseable by feedparser) when this list was set; dead candidates (Reuters,
+# AP, a Treasury press feed) were dropped. Names must not collide with a default.
+_MW = "https://feeds.marketwatch.com/marketwatch"
+_GUARDIAN = "https://www.theguardian.com"
+_SUGGESTED_FEEDS: dict[str, tuple[str, list[str]]] = {
+    "YAHOOFINANCE": ("Wire", ["https://finance.yahoo.com/news/rssindex"]),
+    "MARKETWATCH": (
+        "Wire",
+        [
+            f"{_MW}/topstories/",
+            f"{_MW}/marketpulse/",
+            f"{_MW}/realtimeheadlines/",
+            f"{_MW}/bulletins/",
+        ],
+    ),
+    "NPR": ("Wire", ["https://feeds.npr.org/1006/rss.xml", "https://feeds.npr.org/1017/rss.xml"]),
+    "FED": ("Macro", ["https://www.federalreserve.gov/feeds/press_all.xml"]),
+    "SEC": ("Macro", ["https://www.sec.gov/news/pressreleases.rss"]),
+    "COINDESK": ("Crypto", ["https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml"]),
+    "COINTELEGRAPH": ("Crypto", ["https://cointelegraph.com/rss"]),
+    "GUARDIAN": (
+        "International",
+        [
+            f"{_GUARDIAN}/uk/business/rss",
+            f"{_GUARDIAN}/business/economics/rss",
+            f"{_GUARDIAN}/business/stock-markets/rss",
+        ],
+    ),
+    "NIKKEI": ("International", ["https://asia.nikkei.com/rss/feed/nar"]),
+}
+
 # Pseudo-source name that aggregates every configured source into one feed.
 _ALL = "ALL"
 
@@ -259,6 +294,28 @@ class RssAdapter(Adapter):
             urls = self._feeds.setdefault(name.upper(), [])
             if url not in urls:
                 urls.append(url)
+
+    # -- suggested-source catalog (curated, off-by-default) ----------------- #
+    def suggested_sources(self) -> list[tuple[str, str, list[str]]]:
+        """The curated catalog as (name, category, urls). Static; no registry state."""
+        return [(name, cat, list(urls)) for name, (cat, urls) in _SUGGESTED_FEEDS.items()]
+
+    def enable_source(self, name: str) -> None:
+        """Register a catalog source's feed URLs into the live registry (idempotent)."""
+        entry = _SUGGESTED_FEEDS.get(name.upper())
+        if entry is None:
+            raise SourceUnavailable(f"Unknown suggested source '{name}'")
+        _category, urls = entry
+        for url in urls:
+            self.add_feed(name, url)
+
+    def remove_feed(self, name: str) -> None:
+        """Remove a source from the live registry. Refuses to drop an always-on default."""
+        key = name.upper()
+        if key in _DEFAULT_FEEDS:
+            raise SourceUnavailable(f"Cannot remove built-in source '{key}'")
+        with self._lock:
+            self._feeds.pop(key, None)
 
     def _targets(self, feed: str | None) -> tuple[str, list[tuple[str, str]]]:
         """Return (cache_label, [(item_label, url), ...]) to fetch.
