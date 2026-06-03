@@ -1,5 +1,7 @@
+import asyncio
 from datetime import datetime, timezone
 
+from app.adapters.mock import MockAdapter
 from app.models import Candle, PeriodChange, Quote, QuoteResponse, SourceStatus
 from app.quotes import PERIOD_ORDER, compute_period_changes
 
@@ -107,3 +109,16 @@ def test_ytd_uses_last_close_of_previous_year():
     ladder = {p.period: p for p in compute_period_changes(candles, now)}
     assert ladder["YTD"].ref_close == 200.0
     assert ladder["YTD"].change == 20.0
+
+
+def test_mock_quote_populates_day_stats():
+    q = asyncio.run(MockAdapter().get_quote("AAPL"))
+    assert q.day_open is not None
+    assert q.day_high is not None
+    assert q.day_low is not None
+    assert q.volume is not None
+    assert q.vwap is not None
+    assert q.week52_high is not None
+    assert q.week52_low is not None
+    assert q.market_cap is not None
+    assert q.day_high >= q.day_low

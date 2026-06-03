@@ -73,6 +73,9 @@ class MockAdapter(Adapter):
         change = round(latest - prev, 2)
         change_pct = round((change / prev) * 100, 2) if prev else 0.0
         spread = round(latest * 0.0005, 2)
+        recent = candles[-30:] if len(candles) >= 30 else candles
+        highs = [c.h for c in recent]
+        lows = [c.l for c in recent]
         return Quote(
             symbol=symbol,
             last=latest,
@@ -83,6 +86,14 @@ class MockAdapter(Adapter):
             ts=_now_ms(),
             stale=False,
             source=self.name,
+            day_open=candles[-1].o,
+            day_high=candles[-1].h,
+            day_low=candles[-1].l,
+            volume=round(candles[-1].v, 2),
+            vwap=round((candles[-1].h + candles[-1].l + latest) / 3, 2),
+            week52_high=round(max(highs), 2),
+            week52_low=round(min(lows), 2),
+            market_cap=round(latest * 1_000_000_000, 2),
         )
 
     # -- portfolio --------------------------------------------------------- #
