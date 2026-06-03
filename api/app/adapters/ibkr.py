@@ -8,7 +8,9 @@ verification — for THIS localhost gateway client ONLY, never globally.
 
 Snapshot field codes are numeric and taken from IBKR's official Web API reference
 (verified, not guessed):
-    31=Last, 84=Bid, 86=Ask, 82=Change, 83=Change%, 87=Volume, 7295=Open, 7296=Close
+    31=Last, 84=Bid, 86=Ask, 82=Change, 83=Change%, 87=Volume, 7295=Open, 7296=Close,
+    70=High, 71=Low, 7293=52WkHigh, 7294=52WkLow, 7289=MarketCap
+VWAP has no documented snapshot field code and is intentionally unmapped.
 """
 
 from __future__ import annotations
@@ -26,6 +28,11 @@ from ..models import Candle, IbkrAuthState, Interval, Position, Quote, Span
 from .base import Adapter, SourceUnavailable, Unauthenticated
 
 # Numeric snapshot field codes -> canonical names (IBKR Web API reference).
+# Verified against IBKR Client Portal Web API spec (IB-client-web-API-spec):
+#   31=Last, 84=Bid, 86=Ask, 82=Change, 83=Change%, 87=Volume,
+#   7295=Open, 7296=Close, 70=High, 71=Low,
+#   7293=52WkHigh, 7294=52WkLow, 7289=MarketCap
+# VWAP has no documented snapshot field code — intentionally unmapped.
 _FIELDS: dict[str, str] = {
     "31": "last",
     "84": "bid",
@@ -35,6 +42,11 @@ _FIELDS: dict[str, str] = {
     "87": "volume",
     "7295": "open",
     "7296": "close",
+    "70": "day_high",
+    "71": "day_low",
+    "7293": "week52_high",
+    "7294": "week52_low",
+    "7289": "market_cap",
 }
 
 _US_PRIMARY = ("NASDAQ", "NYSE", "ARCA", "BATS", "AMEX")
@@ -102,6 +114,13 @@ def parse_snapshot(row: dict[str, Any], symbol: str) -> Quote:
         ts=int(row["_updated"]) if isinstance(row.get("_updated"), (int, float)) else None,
         stale=stale,
         source="ibkr",
+        day_open=_num(row.get("7295")),
+        day_high=_num(row.get("70")),
+        day_low=_num(row.get("71")),
+        volume=_num(row.get("87")),
+        week52_high=_num(row.get("7293")),
+        week52_low=_num(row.get("7294")),
+        market_cap=_num(row.get("7289")),
     )
 
 

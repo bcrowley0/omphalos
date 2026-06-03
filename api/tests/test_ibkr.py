@@ -58,3 +58,39 @@ def test_parse_position_normalizes():
     assert pos.market_value == 12058.5
     assert pos.unrealized_pnl == 4558.5
     assert pos.source == "ibkr"
+
+
+def test_parse_snapshot_maps_day_stats_and_fundamentals():
+    from app.adapters.ibkr import parse_snapshot
+
+    row = {
+        "31": "150.0",   # last
+        "84": "149.9",   # bid
+        "86": "150.1",   # ask
+        "82": "1.5",     # change
+        "83": "1.0",     # change pct
+        "87": "1000000", # volume
+        "7295": "148.0", # open
+        "70": "151.0",   # day high
+        "71": "147.5",   # day low
+        "7293": "199.0", # 52w high
+        "7294": "120.0", # 52w low
+        "7289": "2500000000",  # market cap
+    }
+    q = parse_snapshot(row, "AAPL")
+    assert q.day_open == 148.0
+    assert q.day_high == 151.0
+    assert q.day_low == 147.5
+    assert q.volume == 1000000.0
+    assert q.week52_high == 199.0
+    assert q.week52_low == 120.0
+    assert q.market_cap == 2500000000.0
+
+
+def test_parse_snapshot_missing_fundamentals_are_none():
+    from app.adapters.ibkr import parse_snapshot
+
+    q = parse_snapshot({"31": "150.0"}, "AAPL")
+    assert q.market_cap is None
+    assert q.day_high is None
+    assert q.vwap is None  # IBKR snapshot has no VWAP field
