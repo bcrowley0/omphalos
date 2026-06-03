@@ -76,6 +76,13 @@ async def get_text(
     return resp.text
 
 
+async def get_bytes(
+    url: str, *, source: str, client: httpx.AsyncClient | None = None, **kwargs: Any
+) -> bytes:
+    resp = await _request("GET", url, source=source, client=client, **kwargs)
+    return resp.content
+
+
 async def post_form(
     url: str,
     *,
