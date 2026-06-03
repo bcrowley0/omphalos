@@ -10,11 +10,14 @@ import { terminalStore } from "../lib/store";
 import { useWidgetPrefs } from "../lib/widgetPrefs";
 import { coerceFollowingPrefs, DEFAULT_FOLLOWING_PREFS, FOLLOWING_PREFS_KEY } from "../lib/widgetSettings";
 import type { FollowItem } from "../lib/api/client";
-import { CuratedToggle, FeedItemList } from "../components/FeedItemList";
+import { CuratedToggle, FeedItemList, KindFilterChips } from "../components/FeedItemList";
+import PersonSettings from "../components/PersonSettings";
 
 export default function FollowingWidget() {
   const { following } = useTerminal();
-  const key = following.map((p) => `${p.name}:${p.feeds.join("|")}`).join(",");
+  const key = following
+    .map((p) => `${p.name}:${JSON.stringify(p.enabled)}:${p.anchors.youtube ?? ""}:${p.anchors.podcast ?? ""}:${p.anchors.writing.join("|")}`)
+    .join(",");
   // Capture lastSeen per person at mount so "new" badges persist for the session.
   const seenAtMount = useMemo(
     () => Object.fromEntries(following.map((p) => [p.name, p.lastSeenTs])),
@@ -22,6 +25,7 @@ export default function FollowingWidget() {
     [],
   );
   const [filter, setFilter] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [prefs, setPrefs] = useWidgetPrefs(FOLLOWING_PREFS_KEY, DEFAULT_FOLLOWING_PREFS, coerceFollowingPrefs);
   const curated = prefs.curated;
@@ -61,6 +65,7 @@ export default function FollowingWidget() {
               style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0 }}>↗</button>
             <button onClick={() => terminalStore.unfollowPerson(p.name)} title="unfollow"
               style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0 }}>✕</button>
+            <PersonSettings person={p} />
           </span>
         ))}
       </div>
@@ -77,11 +82,13 @@ export default function FollowingWidget() {
       ) : (
       <ResourceView state={state}>
         {(data) => {
-          const scoped: FollowItem[] = filter ? data.items.filter((i) => i.person === filter) : data.items;
+          const byPerson: FollowItem[] = filter ? data.items.filter((i) => i.person === filter) : data.items;
+          const scoped = kindFilter ? byPerson.filter((i) => i.kind === kindFilter) : byPerson;
           const items = curated ? scoped.filter((i) => i.primary && i.relevant) : scoped;
           const hidden = scoped.length - scoped.filter((i) => i.primary && i.relevant).length;
           return (
             <div>
+              <KindFilterChips items={byPerson} active={kindFilter} onPick={setKindFilter} />
               <CuratedToggle curated={curated} hidden={hidden} onToggle={() => setCurated(!curated)} onShowAll={() => setCurated(false)} />
               {data.errors.length > 0 && (
                 <p style={{ color: "#d9a441", fontSize: "0.78rem", marginBottom: "0.6rem" }}>
