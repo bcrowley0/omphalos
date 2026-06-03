@@ -73,6 +73,7 @@ class MockAdapter(Adapter):
         change = round(latest - prev, 2)
         change_pct = round((change / prev) * 100, 2) if prev else 0.0
         spread = round(latest * 0.0005, 2)
+        # Mock: 30-day proxy for the 52-week range (default candles span ~1 month).
         recent = candles[-30:] if len(candles) >= 30 else candles
         highs = [c.h for c in recent]
         lows = [c.l for c in recent]
