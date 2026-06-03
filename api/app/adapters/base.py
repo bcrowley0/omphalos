@@ -12,7 +12,17 @@ from __future__ import annotations
 
 from datetime import date
 
-from ..models import AsOfCurve, Balance, Candle, Interval, NewsItem, Position, Quote, Span
+from ..models import (
+    AsOfCurve,
+    Balance,
+    Candle,
+    Interval,
+    NewsItem,
+    Position,
+    Quote,
+    Span,
+    SwapCurve,
+)
 
 
 class NotSupported(Exception):
@@ -60,6 +70,9 @@ class Adapter:
 
     async def get_yield_curve(self, asof_dates: list[date]) -> list[AsOfCurve]:
         raise NotSupported(f"{self.name} does not support a yield curve")
+
+    async def get_swap_rates(self) -> list[SwapCurve]:
+        raise NotSupported(f"{self.name} does not support swap rates")
 
     def place_order(self, *args, **kwargs):  # noqa: ANN002, ANN003
         # Read-only v1. Never expose this. (CLAUDE.md hard rule #4)
