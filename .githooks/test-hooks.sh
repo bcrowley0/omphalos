@@ -59,7 +59,47 @@ test_pre_push() {
   fi
 }
 
+test_sync() {
+  local sync="$REPO_ROOT/scripts/sync-main-mirror.sh"
+  # Build an upstream repo with an extra commit, and a clone behind it.
+  local up; up="$(mktemp -d)"
+  git -C "$up" init -q -b main
+  git -C "$up" config user.email t@t.t; git -C "$up" config user.name t
+  echo a > "$up/a"; git -C "$up" add a; git -C "$up" commit -q --no-verify -m a
+  local d; d="$(mktemp -d)"
+  git -C "$d" clone -q "$up" .  2>/dev/null || git clone -q "$up" "$d"
+  git -C "$d" config user.email t@t.t; git -C "$d" config user.name t
+  # Advance upstream so the clone's main is strictly behind origin/main.
+  echo b > "$up/b"; git -C "$up" add b; git -C "$up" commit -q --no-verify -m b
+
+  # Behind + clean + on main -> fast-forwards.
+  ( cd "$d" && git fetch -q origin && bash "$sync" >/dev/null 2>&1 )
+  if [ "$(git -C "$d" rev-parse main)" = "$(git -C "$up" rev-parse main)" ]; then
+    ok "sync fast-forwards a clean main that is behind origin/main"
+  else
+    bad "sync should fast-forward a clean main that is behind"
+  fi
+  # Self-installed hooksPath.
+  if [ "$(git -C "$d" config --get core.hooksPath)" = ".githooks" ]; then
+    ok "sync self-installs core.hooksPath=.githooks"
+  else
+    bad "sync should set core.hooksPath=.githooks"
+  fi
+  # Dirty tree -> no-op (advance upstream again first).
+  echo c > "$up/c"; git -C "$up" add c; git -C "$up" commit -q --no-verify -m c
+  echo dirty > "$d/dirty"
+  local before; before="$(git -C "$d" rev-parse main)"
+  ( cd "$d" && git fetch -q origin && bash "$sync" >/dev/null 2>&1 )
+  if [ "$(git -C "$d" rev-parse main)" = "$before" ]; then
+    ok "sync no-ops on a dirty working tree"
+  else
+    bad "sync should not touch main when the tree is dirty"
+  fi
+  rm -rf "$up" "$d"
+}
+
 test_pre_commit
 test_pre_push
+test_sync
 echo "--- $pass passed, $fail failed ---"
 [ "$fail" -eq 0 ]
