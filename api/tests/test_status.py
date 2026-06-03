@@ -6,7 +6,13 @@ from app.routers import build_status
 
 
 def _settings(fred=None, kkey=None, ksecret=None):
-    return SimpleNamespace(fred_api_key=fred, kraken_api_key=kkey, kraken_api_secret=ksecret)
+    return SimpleNamespace(
+        fred_api_key=fred,
+        kraken_api_key=kkey,
+        kraken_api_secret=ksecret,
+        ibkr_auth_mode=None,
+        ibkr_oauth_configured=False,
+    )
 
 
 def test_status_reports_unconfigured_sources():

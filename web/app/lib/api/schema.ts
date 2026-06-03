@@ -463,7 +463,7 @@ export interface components {
              */
             state: "authenticated" | "unauthenticated" | "unreachable";
             /** Loginurl */
-            loginUrl: string;
+            loginUrl?: string | null;
             /** Detail */
             detail: string;
         };

@@ -344,5 +344,5 @@ IbkrAuthState = Literal["authenticated", "unauthenticated", "unreachable"]
 
 class IbkrAuthResponse(CamelModel):
     state: IbkrAuthState
-    login_url: str
+    login_url: str | None = None
     detail: str

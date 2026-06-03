@@ -31,3 +31,6 @@ next-env.d.ts
 go.sh
 dev-servers.log
 .worktrees/
+
+# IBKR OAuth RSA private keys — never commit
+api/secrets/

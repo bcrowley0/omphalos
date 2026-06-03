@@ -141,6 +141,47 @@ running), *log in at the gateway* (running but not authenticated), and connected
 > gateway can't be headlessly authenticated. This is noted for later; not solved
 > now.
 
+### IBKR OAuth 1.0a (headless alternative)
+
+Two auth modes are now supported:
+
+- **gateway** (default) — the Client Portal Gateway setup above; requires a
+  running Java process and a manual browser login on the same machine.
+- **oauth** — headless OAuth 1.0a; no gateway process, no browser login. Routes
+  directly to `https://api.ibkr.com/v1/api`. Server-deployable; removes the
+  same-machine-login constraint noted above.
+
+**Mode selection:** OAuth is activated automatically when all six
+`IBKR_OAUTH_*` env vars are present. Set `IBKR_AUTH_MODE=oauth` or
+`IBKR_AUTH_MODE=gateway` in `api/.env` to force a mode explicitly.
+
+**One-time setup in the IBKR self-service portal:**
+
+1. Register an OAuth consumer and note the **consumer key**.
+2. Generate two RSA key pairs (one for request signing, one for encryption);
+   upload the **public** keys to the portal.
+3. Mint an **access token** and **access token secret**.
+4. Obtain the **Diffie-Hellman prime** from the portal.
+5. Place the RSA **private** key files in `api/secrets/` (gitignored) and set
+   the paths below.
+
+**Env vars to add to `api/.env`:**
+
+```
+IBKR_OAUTH_CONSUMER_KEY=
+IBKR_OAUTH_ACCESS_TOKEN=
+IBKR_OAUTH_ACCESS_TOKEN_SECRET=
+IBKR_OAUTH_SIGNATURE_KEY_PATH=api/secrets/signature.pem
+IBKR_OAUTH_ENCRYPTION_KEY_PATH=api/secrets/encryption.pem
+IBKR_OAUTH_DH_PRIME=
+```
+
+The auth handshake is implemented via the [`ibind`](https://github.com/Voyz/ibind)
+library; the adapter's data path (quotes, positions, conid resolution) is
+unchanged. See the design spec at
+[`docs/superpowers/specs/2026-06-02-ibkr-oauth-design.md`](docs/superpowers/specs/2026-06-02-ibkr-oauth-design.md)
+for implementation details.
+
 ## Commands (the terminal)
 
 Type into the command bar (⌘/Ctrl-K focuses it; ↑/↓ recalls history). Each command

@@ -3,6 +3,7 @@
 import httpx
 
 from app.adapters.ibkr import IbkrAdapter, gateway_login_url
+from app.adapters.ibkr_transport import GatewayTransport
 
 
 def test_gateway_login_url_strips_v1_api_path():
@@ -19,9 +20,11 @@ def test_gateway_login_url_tolerates_trailing_slash():
 
 def _adapter(handler) -> IbkrAdapter:
     a = IbkrAdapter()
-    a._client = httpx.AsyncClient(
+    t = GatewayTransport("https://gw.local/v1/api")
+    t._client = httpx.AsyncClient(
         base_url="https://gw.local/v1/api", transport=httpx.MockTransport(handler)
     )
+    a._transport = t
     return a
 
 
