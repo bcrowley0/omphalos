@@ -88,3 +88,49 @@ def test_portfolio_merges_kraken_margin_and_summary(monkeypatch):
     assert symbols["BTC/USD"]["marginUsed"] == 4000
     assert body["marginSummary"]["freeMargin"] == 8000
     assert body["marginSummary"]["marginLevel"] == 500
+
+
+def test_quote_endpoint_returns_period_ladder(monkeypatch):
+    ibkr = get_registry().get("ibkr")
+
+    async def _get_quote(symbol: str):
+        from app.models import Quote
+        return Quote(
+            symbol=symbol,
+            last=150.0,
+            bid=149.9,
+            ask=150.1,
+            change=1.5,
+            change_pct=1.01,
+            ts=1_700_000_000_000,
+            stale=False,
+            source="ibkr",
+            day_open=148.5,
+            day_high=151.0,
+            day_low=147.0,
+            volume=1_000_000.0,
+        )
+
+    async def _get_candles(symbol: str, interval=None, span=None):
+        import time
+        from app.models import Candle
+        # Build 5 years of daily candles so all period lookbacks have data.
+        _DAY_MS = 86_400_000
+        now_ms = int(time.time() * 1000)
+        count = 5 * 365
+        return [
+            Candle(t=now_ms - (count - 1 - i) * _DAY_MS, o=100.0, h=105.0, l=95.0, c=100.0 + i * 0.01, v=1_000_000.0)
+            for i in range(count)
+        ]
+
+    monkeypatch.setattr(ibkr, "get_quote", _get_quote)
+    monkeypatch.setattr(ibkr, "get_candles", _get_candles)
+
+    resp = client.get("/quote", params={"symbol": "AAPL"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["quote"]["dayHigh"] is not None
+    periods = [p["period"] for p in body["periodChanges"]]
+    assert periods == ["1D", "1W", "1M", "3M", "YTD", "1Y", "5Y"]
+    assert body["periodStatus"] == "ok"

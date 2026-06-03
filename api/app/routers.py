@@ -9,6 +9,7 @@ seeing an unhandled crash (CLAUDE.md hard rule #6).
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date
 
 from fastapi import APIRouter, Query
@@ -41,6 +42,7 @@ from .models import (
     NewsResponse,
     PeopleFeedRequest,
     PeopleFeedResponse,
+    PeriodChange,
     PortfolioResponse,
     Position,
     Quote,
@@ -51,6 +53,7 @@ from .models import (
     StatusResponse,
     YieldCurveResponse,
 )
+from .quotes import compute_period_changes
 from .symbols import resolve
 
 logger = logging.getLogger("omphalos.routers")
@@ -134,7 +137,25 @@ async def quote(symbol: str = Query(...)) -> QuoteResponse:
     except Exception as exc:  # noqa: BLE001
         status, msg = _status_from_exc(exc)
         return QuoteResponse(status=status, message=msg)
-    return QuoteResponse(status=SourceStatus.OK, quote=q)
+
+    # Period ladder: a separate source call. Its failure is surfaced via
+    # period_status and must NEVER drop the live quote (CLAUDE.md rule 6).
+    period_changes: list[PeriodChange] = []
+    period_status = SourceStatus.OK
+    try:
+        candles = await adapter.get_candles(r.symbol, interval=Interval.D1, span=Span.Y5)
+        period_changes = compute_period_changes(candles, int(time.time() * 1000))
+        if not period_changes:
+            period_status = SourceStatus.EMPTY
+    except Exception as exc:  # noqa: BLE001
+        period_status, _ = _status_from_exc(exc)
+
+    return QuoteResponse(
+        status=SourceStatus.OK,
+        quote=q,
+        period_changes=period_changes,
+        period_status=period_status,
+    )
 
 
 # --------------------------------------------------------------------------- #
