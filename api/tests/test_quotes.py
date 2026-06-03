@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from app.models import Candle, PeriodChange, Quote, QuoteResponse, SourceStatus
+from app.quotes import PERIOD_ORDER, compute_period_changes
 
 
 def test_quote_has_optional_day_stats_defaulting_none():
@@ -42,8 +43,6 @@ def test_quote_response_period_defaults():
 # ---------------------------------------------------------------------------
 # Task 2: compute_period_changes
 # ---------------------------------------------------------------------------
-from app.quotes import PERIOD_ORDER, compute_period_changes  # noqa: E402
-
 _DAY_MS = 86_400_000
 
 
