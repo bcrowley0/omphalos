@@ -123,8 +123,13 @@ class Quote(CamelModel):
     market_cap: float | None = None
 
 
+# Multi-period change ladder labels. Literal so OpenAPI emits an enum (tightens
+# the generated TS types) and bad values fail at model construction.
+PeriodLabel = Literal["1D", "1W", "1M", "3M", "YTD", "1Y", "5Y"]
+
+
 class PeriodChange(CamelModel):
-    period: str  # "1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "5Y"
+    period: PeriodLabel
     change: float | None = None
     change_pct: float | None = None
     ref_close: float | None = None  # the close we compared against
