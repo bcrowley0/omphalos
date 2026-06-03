@@ -48,4 +48,8 @@ describe("commandToTab", () => {
   it("maps unfollow to the following roster tab", () => {
     expect(tabFor("unfollow Andrej Karpathy")).toMatchObject({ id: "following", widget: "following" });
   });
+
+  it("maps swaps to the singleton swaps tab", () => {
+    expect(tabFor("swaps")).toMatchObject({ id: "swaps", widget: "swaps", title: "Swaps" });
+  });
 });

@@ -21,9 +21,10 @@ from .adapters.base import (
     Unauthenticated,
 )
 from .adapters.ibkr import IbkrAdapter, gateway_login_url
-from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
+from .adapters.people import PeopleAdapter
+from .adapters.people import merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
-from .config import Settings, get_settings, update_env_file
+from .config import Settings, get_settings, resolve_ibkr_auth_mode, update_env_file
 from .deps import get_registry
 from .models import (
     AddFeedRequest,
@@ -52,6 +53,7 @@ from .models import (
     Span,
     StatusResponse,
     SuggestedSource,
+    SwapsResponse,
     YieldCurveResponse,
 )
 from .symbols import resolve
@@ -227,6 +229,24 @@ async def yield_curve(asof: list[str] = Query(default=[])) -> YieldCurveResponse
 
 
 # --------------------------------------------------------------------------- #
+# swaps → CFTC SDR (DTCC public dissemination). EOD SOFR + US CPI rate-by-tenor.
+# --------------------------------------------------------------------------- #
+@router.get("/swaps", response_model=SwapsResponse, tags=["macro"])
+async def swaps() -> SwapsResponse:
+    adapter = _adapter("sdr")
+    if adapter is None:
+        return SwapsResponse(status=SourceStatus.SOURCE_DOWN, message="sdr integration not available.")
+    try:
+        curves = await adapter.get_swap_rates()
+    except Exception as exc:  # noqa: BLE001 — mapped to a UI state, never crashes
+        status, msg = _status_from_exc(exc)
+        return SwapsResponse(status=status, message=msg)
+    file_date = next((c.obs_date for c in curves), None)
+    status = SourceStatus.OK if any(c.points for c in curves) else SourceStatus.EMPTY
+    return SwapsResponse(status=status, file_date=file_date, curves=curves)
+
+
+# --------------------------------------------------------------------------- #
 # news → RSS (Phase 4)
 # --------------------------------------------------------------------------- #
 @router.get("/news", response_model=NewsResponse, tags=["news"])
@@ -373,7 +393,11 @@ def build_status(settings: Settings) -> StatusResponse:
             SourceConnection(
                 source="ibkr",
                 configured=True,
-                detail="Run the Client Portal Gateway and log in at https://localhost:5000.",
+                detail=(
+                    "IBKR uses OAuth — check credentials in api/.env."
+                    if resolve_ibkr_auth_mode(settings) == "oauth"
+                    else "Run the Client Portal Gateway and log in at https://localhost:5000."
+                ),
             ),
         ]
     )
@@ -411,14 +435,24 @@ _IBKR_DETAIL: dict[str, str] = {
     "unreachable": "IBKR gateway not reachable — is the Client Portal Gateway running?",
 }
 
+_IBKR_OAUTH_DETAIL: dict[str, str] = {
+    "authenticated": "Connected to IBKR via OAuth.",
+    "unauthenticated": "IBKR OAuth credentials were rejected — check api/.env.",
+    "unreachable": "IBKR API (api.ibkr.com) is unreachable.",
+}
+
 
 @router.get("/ibkr/auth", response_model=IbkrAuthResponse, tags=["meta"])
 async def ibkr_auth() -> IbkrAuthResponse:
-    login_url = gateway_login_url(get_settings().ibkr_gateway_base_url)
+    settings = get_settings()
+    mode = resolve_ibkr_auth_mode(settings)
     adapter = _adapter("ibkr")
     if not isinstance(adapter, IbkrAdapter):
         return IbkrAuthResponse(
-            state="unreachable", login_url=login_url, detail="IBKR integration not available."
+            state="unreachable", login_url=None, detail="IBKR integration not available."
         )
     state = await adapter.get_auth_state()
+    if mode == "oauth":
+        return IbkrAuthResponse(state=state, login_url=None, detail=_IBKR_OAUTH_DETAIL[state])
+    login_url = gateway_login_url(settings.ibkr_gateway_base_url)
     return IbkrAuthResponse(state=state, login_url=login_url, detail=_IBKR_DETAIL[state])

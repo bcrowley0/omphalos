@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from app.adapters.ibkr import IbkrAdapter, ibkr_bar, ibkr_period, parse_history
+from app.adapters.ibkr_transport import GatewayTransport
 from app.adapters.kraken import kraken_ohlc_params
 from app.adapters.mock import MockAdapter
 from app.models import (
@@ -135,9 +136,11 @@ async def test_ibkr_get_candles_drives_history_endpoint():
         return httpx.Response(404, json={})
 
     a = IbkrAdapter()
-    a._client = httpx.AsyncClient(
+    t = GatewayTransport("https://gw.local/v1/api")
+    t._client = httpx.AsyncClient(
         base_url="https://gw.local/v1/api", transport=httpx.MockTransport(handler)
     )
+    a._transport = t
     candles = await a.get_candles("AAPL", interval=Interval.H4, span=Span.Y1)
     assert len(candles) == 1 and candles[0].c == 1.5
     assert captured["query"]["conid"] == "265598"
@@ -169,9 +172,11 @@ async def test_ibkr_get_candles_retries_when_first_history_empty():
         return httpx.Response(404, json={})
 
     a = IbkrAdapter()
-    a._client = httpx.AsyncClient(
+    t = GatewayTransport("https://gw.local/v1/api")
+    t._client = httpx.AsyncClient(
         base_url="https://gw.local/v1/api", transport=httpx.MockTransport(handler)
     )
+    a._transport = t
     candles = await a.get_candles("AAPL")
     assert state["history_calls"] == 2
     assert len(candles) == 1

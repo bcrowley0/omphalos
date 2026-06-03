@@ -71,6 +71,11 @@ export async function loadPeopleFeed(people: Person[]): Promise<Schemas["PeopleF
   return unwrap(data, error);
 }
 
+export async function loadSwaps(): Promise<Schemas["SwapsResponse"]> {
+  const { data, error } = await api.GET("/swaps", {});
+  return unwrap(data, error);
+}
+
 export async function loadCalendar(): Promise<Schemas["CalendarResponse"]> {
   const { data, error } = await api.GET("/calendar", {});
   return unwrap(data, error);

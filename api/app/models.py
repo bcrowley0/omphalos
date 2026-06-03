@@ -169,6 +169,26 @@ class AsOfCurve(CamelModel):
     points: list[YieldPoint] = []
 
 
+class SwapTenorPoint(CamelModel):
+    """One standard tenor's summary from a day of SDR swap prints: the median
+    fixed rate, how many prints fell in the bucket, and their summed notional."""
+
+    tenor_label: str          # "1Y", "2Y", ... "30Y"
+    tenor_years: float        # standard bucket value (e.g. 10.0)
+    rate_pct: float           # median fixed rate, percent
+    trade_count: int          # prints in this bucket
+    total_notional: float     # summed notional (USD); capped prints counted at cap
+
+
+class SwapCurve(CamelModel):
+    """SOFR or US CPI swap rates by tenor, as of one EOD SDR file."""
+
+    key: str                  # "sofr" | "cpi"
+    label: str                # human label, e.g. "SOFR OIS"
+    obs_date: int             # UTC epoch ms of the file's report date
+    points: list[SwapTenorPoint] = []
+
+
 # --------------------------------------------------------------------------- #
 # Response envelopes — each carries an explicit status so the frontend can
 # render the right UI state. Loading is handled client-side.
@@ -201,6 +221,13 @@ class YieldCurveResponse(CamelModel):
     status: SourceStatus
     message: str | None = None
     curves: list[AsOfCurve] = []
+
+
+class SwapsResponse(CamelModel):
+    status: SourceStatus
+    message: str | None = None
+    file_date: int | None = None   # UTC epoch ms of the EOD file actually used
+    curves: list[SwapCurve] = []
 
 
 class NewsResponse(CamelModel):
@@ -326,5 +353,5 @@ IbkrAuthState = Literal["authenticated", "unauthenticated", "unreachable"]
 
 class IbkrAuthResponse(CamelModel):
     state: IbkrAuthState
-    login_url: str
+    login_url: str | None = None
     detail: str

@@ -35,6 +35,8 @@ export function parseCommand(input: string): Command {
       return { kind: "port" };
     case "yield":
       return { kind: "yield" };
+    case "swaps":
+      return { kind: "swaps" };
     case "cal":
       return { kind: "cal" };
     case "help":

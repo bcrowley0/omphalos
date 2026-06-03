@@ -52,3 +52,16 @@ async def test_2xx_returns_parsed_json():
 async def test_post_form_401_maps_to_unauthenticated():
     with pytest.raises(Unauthenticated):
         await post_form("/tickle", source="ibkr", data={}, client=_client(401))
+
+
+def test_get_bytes_returns_raw_content():
+    import asyncio
+    import httpx
+    from app.http import get_bytes
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"\x50\x4b\x03\x04rawzip")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    out = asyncio.run(get_bytes("https://example.test/file.zip", source="sdr", client=client))
+    assert out == b"\x50\x4b\x03\x04rawzip"

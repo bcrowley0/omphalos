@@ -33,7 +33,7 @@ export function IbkrAuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await loadIbkrAuth();
       setState(data.state);
-      setLoginUrl(data.loginUrl);
+      setLoginUrl(data.loginUrl ?? null);
       setDetail(data.detail);
     } catch {
       // Backend unreachable → unknown; never show a false "log in" prompt.

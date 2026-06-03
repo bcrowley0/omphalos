@@ -8,11 +8,14 @@ import pytest
 
 from app.adapters.base import SourceUnavailable, Unauthenticated
 from app.adapters.ibkr import IbkrAdapter
+from app.adapters.ibkr_transport import GatewayTransport
 
 
 def _adapter(handler) -> IbkrAdapter:
     a = IbkrAdapter()
-    a._client = httpx.AsyncClient(base_url="https://gw.local/v1/api", transport=httpx.MockTransport(handler))
+    t = GatewayTransport("https://gw.local/v1/api")
+    t._client = httpx.AsyncClient(base_url="https://gw.local/v1/api", transport=httpx.MockTransport(handler))
+    a._transport = t
     return a
 
 

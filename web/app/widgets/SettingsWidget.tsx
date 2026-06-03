@@ -20,7 +20,7 @@ import {
 import { THEME_LABELS, type ThemeName } from "../lib/themes";
 import { useIbkrAuth } from "../components/IbkrAuthProvider";
 import { IbkrLoginButton, IbkrRecheckButton } from "../components/IbkrLoginButton";
-import { ibkrDotColor } from "../lib/ibkrAuth";
+import { ibkrDotColor, ibkrLoginActionable } from "../lib/ibkrAuth";
 import { SPANS, INTERVALS, type Span, type Interval } from "../lib/chart/range";
 
 const selectStyle: React.CSSProperties = {
@@ -215,7 +215,7 @@ export default function SettingsWidget() {
                   </span>
                   {isIbkr && (
                     <>
-                      <IbkrLoginButton loginUrl={ibkr.loginUrl} />
+                      {ibkrLoginActionable(ibkr.state) && <IbkrLoginButton loginUrl={ibkr.loginUrl} />}
                       <IbkrRecheckButton onClick={ibkr.recheck} loading={ibkr.loading} />
                     </>
                   )}

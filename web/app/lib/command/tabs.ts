@@ -19,6 +19,8 @@ export function commandToTab(cmd: Command): Tab | null {
       return { id: "portfolio", widget: "portfolio", title: "Portfolio" };
     case "yield":
       return { id: "yield", widget: "yield", title: "Yield Curve" };
+    case "swaps":
+      return { id: "swaps", widget: "swaps", title: "Swaps" };
     case "news":
       return cmd.feed
         ? { id: `news:${cmd.feed}`, widget: "news", title: `News ${cmd.feed}`, feed: cmd.feed }
