@@ -23,7 +23,7 @@ from .adapters.base import (
 from .adapters.ibkr import IbkrAdapter, gateway_login_url
 from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
-from .config import Settings, get_settings, update_env_file
+from .config import Settings, get_settings, resolve_ibkr_auth_mode, update_env_file
 from .deps import get_registry
 from .models import (
     AddFeedRequest,
@@ -369,14 +369,24 @@ _IBKR_DETAIL: dict[str, str] = {
     "unreachable": "IBKR gateway not reachable — is the Client Portal Gateway running?",
 }
 
+_IBKR_OAUTH_DETAIL: dict[str, str] = {
+    "authenticated": "Connected to IBKR via OAuth.",
+    "unauthenticated": "IBKR OAuth credentials were rejected — check api/.env.",
+    "unreachable": "IBKR API (api.ibkr.com) is unreachable.",
+}
+
 
 @router.get("/ibkr/auth", response_model=IbkrAuthResponse, tags=["meta"])
 async def ibkr_auth() -> IbkrAuthResponse:
-    login_url = gateway_login_url(get_settings().ibkr_gateway_base_url)
+    settings = get_settings()
+    mode = resolve_ibkr_auth_mode(settings)
     adapter = _adapter("ibkr")
     if not isinstance(adapter, IbkrAdapter):
         return IbkrAuthResponse(
-            state="unreachable", login_url=login_url, detail="IBKR integration not available."
+            state="unreachable", login_url=None, detail="IBKR integration not available."
         )
     state = await adapter.get_auth_state()
+    if mode == "oauth":
+        return IbkrAuthResponse(state=state, login_url=None, detail=_IBKR_OAUTH_DETAIL[state])
+    login_url = gateway_login_url(settings.ibkr_gateway_base_url)
     return IbkrAuthResponse(state=state, login_url=login_url, detail=_IBKR_DETAIL[state])

@@ -2,11 +2,13 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.adapters.base import Unauthenticated
 from app.adapters.ibkr import IbkrAdapter
 from app.adapters.ibkr_transport import GatewayTransport, OAuthTransport
 from app.config import Settings, resolve_ibkr_auth_mode
+from app.main import app
 
 
 def _oauth_settings(**over):
@@ -133,3 +135,18 @@ def test_adapter_builds_oauth_transport_when_configured(monkeypatch):
     )
     a = IbkrAdapter()
     assert isinstance(a._build_transport(), OAuthTransport)
+
+
+def test_ibkr_auth_oauth_mode_has_null_login_url(monkeypatch):
+    monkeypatch.setattr("app.routers.get_settings", lambda: _oauth_settings())
+    monkeypatch.setattr("app.routers.resolve_ibkr_auth_mode", lambda s: "oauth")
+
+    async def fake_state(self):
+        return "unauthenticated"
+
+    monkeypatch.setattr("app.adapters.ibkr.IbkrAdapter.get_auth_state", fake_state)
+
+    client = TestClient(app)
+    body = client.get("/ibkr/auth").json()
+    assert body["loginUrl"] is None
+    assert "credential" in body["detail"].lower() or "api/.env" in body["detail"]
