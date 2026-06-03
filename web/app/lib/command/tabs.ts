@@ -13,6 +13,7 @@ export function commandToTab(cmd: Command): Tab | null {
       return { id: `quote:${cmd.symbol}`, widget: "quote", title: `Quote ${cmd.symbol}`, symbol: cmd.symbol };
     case "watch":
     case "unwatch":
+    case "watchlist":
       return { id: "watchlist", widget: "watchlist", title: "Watchlist" };
     case "port":
       return { id: "portfolio", widget: "portfolio", title: "Portfolio" };

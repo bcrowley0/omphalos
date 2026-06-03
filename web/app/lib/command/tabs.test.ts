@@ -29,6 +29,11 @@ describe("commandToTab", () => {
     expect(tabFor("unwatch NVDA")).toMatchObject({ id: "watchlist", widget: "watchlist" });
   });
 
+  it("maps the bare `watch`/`watchlist` intent to the single watchlist tab", () => {
+    expect(tabFor("watch")).toMatchObject({ id: "watchlist", widget: "watchlist" });
+    expect(tabFor("watchlist")).toMatchObject({ id: "watchlist", widget: "watchlist" });
+  });
+
   it("returns null for an error command (no tab opens)", () => {
     expect(tabFor("frobnicate")).toBeNull();
   });
