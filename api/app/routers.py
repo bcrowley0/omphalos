@@ -21,7 +21,8 @@ from .adapters.base import (
     Unauthenticated,
 )
 from .adapters.ibkr import IbkrAdapter, gateway_login_url
-from .adapters.people import PeopleAdapter, merge_dedupe_sort as merge_people_items
+from .adapters.people import PeopleAdapter
+from .adapters.people import merge_dedupe_sort as merge_people_items
 from .adapters.rss import RssAdapter
 from .config import Settings, get_settings, resolve_ibkr_auth_mode, update_env_file
 from .deps import get_registry
@@ -331,7 +332,11 @@ def build_status(settings: Settings) -> StatusResponse:
             SourceConnection(
                 source="ibkr",
                 configured=True,
-                detail="Run the Client Portal Gateway and log in at https://localhost:5000.",
+                detail=(
+                    "IBKR uses OAuth — check credentials in api/.env."
+                    if resolve_ibkr_auth_mode(settings) == "oauth"
+                    else "Run the Client Portal Gateway and log in at https://localhost:5000."
+                ),
             ),
         ]
     )

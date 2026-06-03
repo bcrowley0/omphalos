@@ -7,6 +7,7 @@ isolated here. See docs/superpowers/specs/2026-06-02-ibkr-oauth-design.md.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -133,7 +134,9 @@ class OAuthTransport(IbkrTransport):
     async def ensure_session(self) -> None:
         if not self._lst_valid():
             try:
-                lst, expires_ms, _sig = req_live_session_token(self._ibind_client(), self._oauth)
+                lst, expires_ms, _sig = await asyncio.to_thread(
+                    req_live_session_token, self._ibind_client(), self._oauth
+                )
             except Exception as exc:  # noqa: BLE001 — bad creds/signature => actionable state
                 self._brokerage_ready = False
                 raise Unauthenticated(
