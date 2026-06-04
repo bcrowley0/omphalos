@@ -95,7 +95,8 @@ ln -s "$(git -C ../.. rev-parse --show-toplevel)/api/.venv" ../omphalos-a/api/.v
 ```
 
 Point each session at its own dir (e.g. `/path/omphalos-a`) and tell it to stay on
-that branch. When a lane is done, merge to `main`, then
+that branch. When a lane is done, open a PR to `main` (never merge or push to
+`main` directly — see above), then
 `git worktree remove ../omphalos-a && git branch -d feat/work-a`.
 
 Caveats:

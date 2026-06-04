@@ -95,6 +95,15 @@ test_sync() {
   else
     bad "sync should not touch main when the tree is dirty"
   fi
+  # Off main (feature branch) -> no-op even when origin is ahead.
+  git -C "$d" checkout -q -b feat/y
+  local off_before; off_before="$(git -C "$d" rev-parse main)"
+  ( cd "$d" && git fetch -q origin && bash "$sync" >/dev/null 2>&1 )
+  if [ "$(git -C "$d" rev-parse main)" = "$off_before" ]; then
+    ok "sync no-ops when not on main"
+  else
+    bad "sync should not touch main when checked out elsewhere"
+  fi
   rm -rf "$up" "$d"
 }
 
