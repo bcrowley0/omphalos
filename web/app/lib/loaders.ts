@@ -41,8 +41,13 @@ export async function loadChart(
   return unwrap(data, error);
 }
 
-export async function loadQuote(symbol: string): Promise<Schemas["QuoteResponse"]> {
-  const { data, error } = await api.GET("/quote", { params: { query: { symbol } } });
+export async function loadQuote(
+  symbol: string,
+  withPeriods = true,
+): Promise<Schemas["QuoteResponse"]> {
+  const { data, error } = await api.GET("/quote", {
+    params: { query: { symbol, with_periods: withPeriods } },
+  });
   return unwrap(data, error);
 }
 
@@ -111,8 +116,8 @@ export type QuoteData = {
   periodStatus: Schemas["SourceStatus"];
 };
 
-export async function loadQuoteData(symbol: string): Promise<QuoteData> {
-  const r = await loadQuote(symbol);
+export async function loadQuoteData(symbol: string, withPeriods = true): Promise<QuoteData> {
+  const r = await loadQuote(symbol, withPeriods);
   return {
     status: r.status,
     message: r.message,
@@ -134,7 +139,8 @@ export async function loadWatchlist(symbols: string[]): Promise<WatchlistData> {
   if (symbols.length === 0) {
     return { status: "empty", message: "Watchlist is empty. Add with: watch <SYMBOL>", quotes: [] };
   }
-  const results = await Promise.all(symbols.map((s) => loadQuoteData(s)));
+  // Watchlist shows only the quote line; skip the period-ladder fetch per symbol.
+  const results = await Promise.all(symbols.map((s) => loadQuoteData(s, false)));
   const quotes = results.map((r) => r.quote).filter((q): q is Schemas["Quote"] => Boolean(q));
   return { status: "ok", quotes };
 }

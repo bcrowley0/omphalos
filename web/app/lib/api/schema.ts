@@ -722,6 +722,7 @@ export interface operations {
         parameters: {
             query: {
                 symbol: string;
+                with_periods?: boolean;
             };
             header?: never;
             path?: never;
