@@ -124,7 +124,10 @@ async def chart(
 
 
 @router.get("/quote", response_model=QuoteResponse, tags=["market"])
-async def quote(symbol: str = Query(...)) -> QuoteResponse:
+async def quote(
+    symbol: str = Query(...),
+    with_periods: bool = Query(True),
+) -> QuoteResponse:
     r = resolve(symbol)
     adapter = _adapter(r.source)
     if adapter is None:
@@ -138,17 +141,19 @@ async def quote(symbol: str = Query(...)) -> QuoteResponse:
         status, msg = _status_from_exc(exc)
         return QuoteResponse(status=status, message=msg)
 
-    # Period ladder: a separate source call. Its failure is surfaced via
-    # period_status and must NEVER drop the live quote (CLAUDE.md rule 6).
+    # Period ladder: a separate 5Y candle fetch. Skipped when with_periods=false
+    # so the watchlist (which reuses /quote per symbol) avoids an uncached history
+    # fetch for every row — it only needs the live quote, not the change ladder.
     period_changes: list[PeriodChange] = []
     period_status = SourceStatus.OK
-    try:
-        candles = await adapter.get_candles(r.symbol, interval=Interval.D1, span=Span.Y5)
-        period_changes = compute_period_changes(candles, int(time.time() * 1000))
-        if not period_changes:
-            period_status = SourceStatus.EMPTY
-    except Exception as exc:  # noqa: BLE001
-        period_status, _ = _status_from_exc(exc)
+    if with_periods:
+        try:
+            candles = await adapter.get_candles(r.symbol, interval=Interval.D1, span=Span.Y5)
+            period_changes = compute_period_changes(candles, int(time.time() * 1000))
+            if not period_changes:
+                period_status = SourceStatus.EMPTY
+        except Exception as exc:  # noqa: BLE001
+            period_status, _ = _status_from_exc(exc)
 
     return QuoteResponse(
         status=SourceStatus.OK,

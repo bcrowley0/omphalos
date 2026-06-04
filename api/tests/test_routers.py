@@ -136,6 +136,28 @@ def test_quote_endpoint_returns_period_ladder(monkeypatch):
     assert body["periodStatus"] == "ok"
 
 
+def test_quote_skips_ladder_when_periods_disabled(monkeypatch):
+    ibkr = get_registry().get("ibkr")
+
+    async def _get_quote(symbol: str):
+        from app.models import Quote
+        return Quote(symbol=symbol, last=150.0, source="ibkr")
+
+    async def _boom(symbol: str, interval=None, span=None):
+        raise AssertionError("get_candles must NOT be called when with_periods=false")
+
+    monkeypatch.setattr(ibkr, "get_quote", _get_quote)
+    monkeypatch.setattr(ibkr, "get_candles", _boom)
+
+    resp = client.get("/quote", params={"symbol": "AAPL", "with_periods": "false"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["quote"]["last"] == 150.0
+    assert body["periodChanges"] == []
+    assert body["periodStatus"] == "ok"
+
+
 def test_quote_survives_period_history_failure(monkeypatch):
     """A candles/history failure surfaces via periodStatus but must NOT drop the
     live quote (CLAUDE.md rule 6)."""
