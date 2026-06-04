@@ -82,6 +82,12 @@ Run **one session per working directory, each on its own branch.** Multiple
 sessions sharing the same checkout and branch will interleave commits and edit each
 other's files — use `git worktree` to give each its own isolated tree off `main`:
 
+**`main` is a read-only mirror of `origin/main`.** Never commit to `main` or push
+to it directly — git hooks reject both. Work in a worktree (`./new-worktree.sh`)
+and integrate via PR. Hooks activate via `git config core.hooksPath .githooks`
+(the `SessionStart` hook sets this automatically; set it once manually for a
+plain clone).
+
 ```bash
 git worktree add ../omphalos-a -b feat/work-a main   # one per concurrent lane
 cd ../omphalos-a/web && npm ci                        # real install (see caveat 1)
@@ -89,7 +95,8 @@ ln -s "$(git -C ../.. rev-parse --show-toplevel)/api/.venv" ../omphalos-a/api/.v
 ```
 
 Point each session at its own dir (e.g. `/path/omphalos-a`) and tell it to stay on
-that branch. When a lane is done, merge to `main`, then
+that branch. When a lane is done, open a PR to `main` (never merge or push to
+`main` directly — see above), then
 `git worktree remove ../omphalos-a && git branch -d feat/work-a`.
 
 Caveats:

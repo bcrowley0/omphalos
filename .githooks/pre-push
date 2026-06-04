@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Reject direct pushes to main on any remote. Integrate via PR instead.
+set -uo pipefail
+# stdin: <local ref> <local sha> <remote ref> <remote sha>, one line per ref.
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "pre-push: direct push to main is forbidden — integrate via PR." >&2
+    exit 1
+  fi
+done
+exit 0
